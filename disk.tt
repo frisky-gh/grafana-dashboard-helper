@@ -1,0 +1,192 @@
+//// Disk
+////
+//// Dashboard name must be "hostname,servicedesc".
+//// Capture hostname / serviesdesc from dashboard name.
+[% m = DASHBOARD_NAME.match("(.*),(.*)") %][% hostname = m.0 %][% servicedesc = m.1 -%]
+//// naemon2influx named measurement as "hostname.servicedesc"
+[% measurement = hostname _ "." _ servicedesc -%]
+////
+//// Block name must be "*,measurement,target".
+//// Capture measurement / target from block name.
+[% m = BLOCK_NAME.match(".*,(.*),(.*)") %][% measurement = m.0 %][% target = m.1 -%]
+{
+	    "title": "Disk \"[%target%]\" Volume in [%hostname%]",
+	    "id": 9999,
+	    "datasource": "[%GRAFANADATASOURCE%]",
+            "_panel_relations": [
+                "[%measurement%] disk[[%target%]]-total",
+                "[%measurement%] disk[[%target%]]-avail",
+                "[%measurement%] disk[[%target%]]-avail-pct"
+            ],
+	    "_dashboard_tags" : [ "[%hostname%]", "[%servicedesc%]" ],
+	    "isNew": true,
+	    "editable": true,
+	    "tooltip": { "shared": true, "value_type": "individual" },
+	    "type": "graph",
+	    "x-axis": true,
+	    "y-axis": true,
+	    "y_formats": [ "mbytes" ],
+	    "grid": {},
+	    "gridPos": { "w": 12, "h": 6, "x": 0, "y": 1 },
+	    "span": 6,
+	    "legend": {
+		"show": true,
+		"values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
+		"rightSide": true, "alignAsTable": true, "sideWidth": 350,
+		"hideEmpty": true, "hideZero": false
+	    },
+	    "targets": [ {
+		"refId": "0001",
+		"dsType": "influxdb",
+		"resultFormat": "time_series",
+		"refId": "A",
+		"measurement": "[%measurement%]",
+		"alias": "$col",
+		"groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+		"tags": [],
+		"select": [
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-total" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "total size" ] }
+		    ],
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-avail" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "avail size" ] }
+		    ],
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-avail-pct" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "avail%" ] }
+		    ],
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-avail-pct.warn_lower" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "warn" ] }
+		    ],
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-avail-pct.crit_lower" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "crit" ] }
+		    ]
+		]
+	    } ],
+	    "nullPointMode": "connected",
+	    "yaxes": [
+		{
+		    "show": true,
+		    "min": 0, "max": null, "format": "mbytes"
+ 		},
+		{
+		    "show": true,
+		    "min": "0", "max": "100", "format": "percent"
+		}
+	    ],
+	    "seriesOverrides": [
+		{
+		    "alias": "avail%",
+		    "fill": 0,
+		    "yaxis": 2
+		},
+		{
+		    "alias": "crit",
+		    "fill": 0,
+		    "yaxis": 2
+		},
+		{
+		    "alias": "warn",
+		    "fill": 0,
+		    "yaxis": 2
+		}
+	    ]
+},
+{
+	    "title": "Disk \"[%target%]\" i-Nodes in [%hostname%]",
+	    "id": 9999,
+	    "datasource": "[%GRAFANADATASOURCE%]",
+            "_panel_relations": [
+                "[%measurement%] disk[[%target%]]-itotal",
+                "[%measurement%] disk[[%target%]]-iavail",
+                "[%measurement%] disk[[%target%]]-iavail-pct"
+            ],
+	    "isNew": true,
+	    "editable": true,
+	    "tooltip": { "shared": true, "value_type": "individual" },
+	    "type": "graph",
+	    "x-axis": true,
+	    "y-axis": true,
+	    "grid": {},
+	    "gridPos": { "w": 12, "h": 6, "x": 12, "y": 1 },
+	    "legend": {
+		"show": true,
+		"values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
+		"rightSide": true, "alignAsTable": true, "sideWidth": 350,
+		"hideEmpty": true, "hideZero": false
+	    },
+	    "targets": [ {
+		"refId": "0001",
+		"dsType": "influxdb",
+		"resultFormat": "time_series",
+		"refId": "A",
+		"measurement": "[%measurement%]",
+		"alias": "$col",
+		"groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+		"tags": [],
+		"select": [
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-itotal" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "total size" ] }
+		    ],
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-iavail" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "avail size" ] }
+		    ],
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-iavail-pct" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "avail%" ] }
+		    ],
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-iavail-pct.warn_lower" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "warn" ] }
+		    ],
+		    [
+			{ "type": "field", "params": [ "disk[[%target%]]-iavail-pct.crit_lower" ] },
+			{ "type": "mean",  "params": [] },
+			{ "type": "alias", "params": [ "crit" ] }
+		    ]
+		]
+	    } ],
+	    "nullPointMode": "connected",
+	    "yaxes": [
+		{
+		    "show": true, "label": "files",
+		    "min": 0, "max": null, "format": "short"
+ 		},
+		{
+		    "show": true,
+		    "min": "0", "max": "100", "format": "percent"
+		}
+	    ],
+	    "seriesOverrides": [
+		{
+		    "alias": "avail%",
+		    "fill": 0,
+		    "yaxis": 2
+		},
+		{
+		    "alias": "crit",
+		    "fill": 0,
+		    "yaxis": 2
+		},
+		{
+		    "alias": "warn",
+		    "fill": 0,
+		    "yaxis": 2
+		}
+	    ]
+}

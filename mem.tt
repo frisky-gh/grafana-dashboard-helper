@@ -1,0 +1,62 @@
+//// Memory
+////
+//// Dashboard name must be "hostname,servicedesc".
+//// Capture hostname / serviesdesc from dashboard name.
+[% m = DASHBOARD_NAME.match("(.*),(.*)") %][% hostname = m.0 %][% servicedesc = m.1 -%]
+[% m = BLOCK_NAME.match(".*,(.*)") %][% measurement = m.0 -%]
+{
+	"title": "Memory in [%hostname%]",
+	"id": 9999,
+	"datasource": "[%GRAFANADATASOURCE%]",
+        "_panel_relations": [
+            "[%measurement%] mem-total",
+            "[%measurement%] mem-available",
+            "[%measurement%] mem-buffers",
+            "[%measurement%] mem-cached",
+            "[%measurement%] mem-free"
+        ],
+        "_dashboard_tags" : [ "[%hostname%]", "[%servicedesc%]" ],
+        "isNew": true,
+        "editable": true,
+        "tooltip": { "shared": true, "value_type": "individual" },
+        "type": "graph",
+        "x-axis": true,
+        "y-axis": true,
+        "y_formats": [ "short" ],
+        "grid": { "leftLogBase": 1, "leftMax": null, "leftMin": null },
+	"gridPos": { "w": 24, "h": 6, "x": 0, "y": 0 },
+	"span": 12,
+        "legend": {
+            "show": true,
+            "values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
+            "rightSide": true, "alignAsTable": true, "sideWidth": 300,
+            "hideEmpty": true, "hideZero": false
+        },
+        "targets": [ {
+	    "refId": "0001",
+            "dsType": "influxdb",
+            "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+            "measurement": "[%measurement%]",
+            "tags": [],
+            "select": [
+                [ { "type": "field", "params": [ "mem-total" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "total" ] } ],
+                [ { "type": "field", "params": [ "mem-available" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "avail" ] } ],
+                [ { "type": "field", "params": [ "mem-buffers" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "buffers" ] } ],
+                [ { "type": "field", "params": [ "mem-cached" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "cached" ] } ],
+                [ { "type": "field", "params": [ "mem-free" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "free" ] } ]
+            ]
+        } ],
+	"nullPointMode": "connected"
+}

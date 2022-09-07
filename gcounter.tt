@@ -1,0 +1,45 @@
+//// Generic Counter
+////
+//// Dashboard name must be "hostname,servicedesc".
+//// Capture hostname / serviesdesc from dashboard name.
+[% m = DASHBOARD_NAME.match("(.*),(.*)") %][% hostname = m.0 %][% servicedesc = m.1 -%]
+//// naemon2influx named measurement as "hostname.servicedesc"
+[% measurement = hostname _ "." _ servicedesc -%]
+////
+//// Block name must be "*,measurement,target".
+//// Capture measurement / target from block name.
+[% m = BLOCK_NAME.match(".*,(.*),(.*)") %][% measurment = m.0 %][% target = m.1 -%]
+{
+	"title": "Counter [%target%] in [%hostname%] (Generic Counter)",
+	"id": 9999,
+	"datasource": "[%GRAFANADATASOURCE%]",
+        "_panel_relations": [
+            "[%measurement%] [%target%]-cnt"
+        ],
+        "_dashboard_tags" : [ "[%hostname%]", "[%servicedesc%]" ],
+	"isNew": true,
+	"editable": true,
+	"tooltip": { "shared": true, "value_type": "individual" },
+	"type": "graph",
+	"x-axis": true,
+	"y-axis": true,
+	"y_formats": [ "short" ],
+	"grid": { "leftLogBase": 1, "leftMax": null, "leftMin": 0 },
+	"gridPos": { "w": 12, "h": 6, "x": 0, "y": 0 },
+	"span": 12,
+	"legend": {
+	    "show": true,
+	    "values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
+	    "rightSide": true, "alignAsTable": true,
+	    "hideEmpty": true, "hideZero": false
+	},
+	"targets": [ {
+	    "refId": "0001",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "query": "SELECT last(\"[%target%]-cnt\")-first(\"[%target%]-cnt\") AS \"differencial\" FROM \"[%measurement%]\" GROUP BY time(60m) fill(0)",
+	    "rawQuery": true
+	} ],
+	"nullPointMode": "connected"
+}

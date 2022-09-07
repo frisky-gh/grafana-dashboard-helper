@@ -1,0 +1,25 @@
+#						dash-
+#						board
+# measurement regexp	field regexp		name	block name
+# --------------------- ----------------------- ------- ----------------------
+(ncrt\.(.*)\.(.*))	(.*)			$2,$3	50_generic,$1,$4
+(ncrt\.(.*)\.(.*))	(.+)-cnt		$2,$3	50_gcounter,$1,$4
+(ncrt\.(.*)\.(.*))	(.+)-pct		$2,$3	50_gpercent,$1,$4
+(ncrt\.(.*)\.(.*))	(.+)-(.pm)		$2,$3	50_gpm,$1,$4,$5
+(ncrt\.(.*)\.(.*))	(.+)-(total|used|free|avail) $1	50_gvolume,$1,$4
+
+(ncrt\.(.*)\.(.*))	(longtermavg-of-)?cpu-.+ $2,$3	50_cpu,$1
+(ncrt\.(.*)\.(.*))	mem-.+			$2,$3	50_mem,$1
+(ncrt\.(.*)\.(.*))	([-\w]+-)?disk\[([^,]+)\]-i?(total|used|avail|avail-pct)						$2,$3	50_disk,$1,$5
+(ncrt\.(.*)\.(.*))	([-\w]+-)?link\[([^,]+)\]-.x-(throughput|bytes|packets|dropped|errors|mcast|overrun|carrier|collsns)-(mbps|ppm|cnt)									$2,$3	50_link,$1,$5
+(ncrt\.(.*)\.(.*))	([-\w]+-)?port\[([^,]+)\]-(conns|recvq|sendq)								$2,$3	50_port,$1,$5
+(ncrt\.(.*)\.(.*))	([-\w]+-)?proc\[([^,]+)\]-.*										$2,$3	50_proc,$1,$5
+(ncrt\.(.*)\.(.*))	(longtermavg-of-)?([-\w]+-)?dev\[([^,]+)\]-(read|write)-\w+						$2,$3	50_dev,$1,$6
+
+(ncrt\.(.*)\.(.*))	(ncrtagent\[.*\]-.*)	$2,$3	90_generic,$1,$4
+
+####
+ncrt\..*\..*		.*\.(min|max)		-	-
+ncrt\..*\..*		.*\.(warn|crit)_upper	-	-
+ncrt\..*\..*		.*\.(warn|crit)_lower	-	-
+

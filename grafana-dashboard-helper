@@ -1,0 +1,1130 @@
+#!/usr/bin/perl
+
+use Encode;
+use English;
+use IO::Handle;
+use URI::Escape;
+use URI::Query;
+use HTTP::Daemon;
+use HTTP::Status;
+use LWP::UserAgent;
+use JSON::PP;
+use Template;
+use strict;
+
+our $NAME          = 'grafana-dashboard-helper';
+our $HELPER_CONF   = "/etc/influxdb/$NAME.conf";
+our $NAMEMAPRULE   = "/etc/influxdb/$NAME.namemaprule";
+our $TEMPLATERULE  = "/etc/influxdb/$NAME.templaterule";
+our $TEMPLATEDIR   = "/etc/influxdb/$NAME.template";
+our $ENTRIES       = "/var/lib/influxdb/$NAME.entries";
+our $FIELDKEYS     = "/var/lib/influxdb/$NAME.fieldkeys";
+our $LOGFILE       = "/var/log/influxdb/$NAME.log";
+
+####
+our $LOGFH;
+if( open $LOGFH, '>>', $LOGFILE ){ $LOGFH->autoflush; }
+else{ $LOGFH = *STDERR; }
+our $DEBUG = 0;
+
+sub debuglog ($;@) {
+	return unless $DEBUG;
+	my ($format, @args) = @_;
+	my ($sec,$min,$hour,$day,$mon,$year) = localtime time;
+	my $t = sprintf '%04d-%02d-%02d_%02d:%02d:%02d', $year+1900, $mon+1, $day, $hour, $min, $sec;
+	my $s = sprintf "$t $format\n", @args;
+	print $LOGFH encode_utf8($s);
+}
+
+sub accesslog ($;@) {
+	my ($format, @args) = @_;
+	my ($sec,$min,$hour,$day,$mon,$year) = localtime time;
+	my $t = sprintf '%04d-%02d-%02d_%02d:%02d:%02d', $year+1900, $mon+1, $day, $hour, $min, $sec;
+	printf $LOGFH "$t $format\n", @args;
+}
+
+sub var2ltsv ( \% ){
+	my ($var) = @_;
+	my @ltsv;
+	push @ltsv, "host_service:".$var->{host_service} if defined $var->{host_service};
+	foreach my $k ( sort {$a cmp $b} keys %$var ){
+		next if $k eq 'host_service';
+                push @ltsv, "$k:".$var->{$k};
+	}
+	return join "\t", @ltsv;
+}
+
+sub ltsv2var ( $ ){
+	my ($ltsv) = @_;
+	my %var;
+	foreach my $kv ( split m"\t", $ltsv ){
+		$kv =~ m"^([-./\[\]\w]+):(.*)$" or do {
+			next;
+		};
+		my $k = $1;
+		my $v = $2;
+		$var{$k} = $v;
+	}
+	return %var;
+}
+
+####
+sub read_helper_conf () {
+	my $filename = $HELPER_CONF;
+	my %conf = (
+		'LISTENADDR' => 'localhost',
+		'LISTENPORT' => 46849,
+		'HELPERURL' => 'http://localhost:46849/',
+
+		'GRAFANADATASOURCE' => 'influxdb',
+		'GRAFANAURL'        => 'http://localhost/',
+		'GRAFANAAPIKEY'     => 'AAAAAA',
+		'GRAFANAORGID'      => 'undef',
+
+		'INFLUXURL'	    => 'http://localhost:18520',
+		'INFLUXUSER'	    => 'naemon',
+		'INFLUXPASSWORD'    => 'naemonadmin',
+		'INFLUXDATABASE'    => 'NCRTDB',
+
+		'DEBUG' => 0,
+	);
+
+	open my $h, '<', $filename or do {
+		die "cannot open $filename: $OS_ERROR, stopped";
+	};
+	while (<$h>) {
+		next if m"^\s*(#|$)";
+		die "$filename:$.: illegal format, stopped" unless m"^(\w+)=(.*)$";
+		$conf{$1} = $2;
+	}
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return \%conf;
+}
+
+sub read_namemap_rule () {
+	my $filename = $NAMEMAPRULE;
+	my @rules;
+
+	open my $h, '<', $filename or do {
+		die "cannot open $filename: $OS_ERROR, stopped";
+	};
+	while (<$h>) {
+		next if m"^\s*(#|$)";
+		unless( m"^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)" ){
+			die "$filename:$.: illegal format, stopped";
+		}
+		my $measurement_regexp  = qr"^$1$";
+		my $fieldkey_regexp     = qr"^$2$";
+		my $dashboard_preexpand = $3;
+		my $block_preextend     = $4;
+		push @rules, [
+			$measurement_regexp, $fieldkey_regexp,
+			$dashboard_preexpand, $block_preextend
+		];
+	}
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return \@rules;
+}
+
+sub read_template_rule () {
+	my $filename = $TEMPLATERULE;
+	my @rules;
+
+	open my $h, '<', $filename or do {
+		die "cannot open $filename: $OS_ERROR, stopped";
+	};
+	while (<$h>) {
+		next if m"^\s*(#|$)";
+		unless( m"^(\S+)\s+(\S+)\s+(\S+)" ){
+			die "$filename:$.: illegal format, stopped";
+		}
+		my $dashboard_regexp   = qr"^$1$";
+		my $block_regexp       = qr"^$2$";
+		my $template_preexpand = $3;
+		push @rules, [
+			$dashboard_regexp, $block_regexp, $template_preexpand
+		];
+	}
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return \@rules;
+}
+
+sub read_template ($) {
+	my ($templatename) = @_;
+	my $filename = "$TEMPLATEDIR/$templatename.tt";
+	open my $h, '<', "$filename" or do {
+		debuglog "cannot open %s: %s", $filename, $OS_ERROR;
+		return undef;
+	};
+	my $text = join '', <$h>;
+	close $h or do {
+		debuglog "close failed for %s: %s", $filename, $OS_ERROR;
+		return undef;
+	};
+	return $text;
+}
+
+sub read_grafanaentries () {
+	my @r;
+	my $filename = $ENTRIES;
+	open my $h, '<', "$filename" or do {
+		#die "cannot open $filename: $OS_ERROR, stopped";
+		return ();
+	};
+	while( <$h> ){
+		chomp;
+		my $var = decode_json $_;
+		push @r, $var;
+	}
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return @r;
+}
+
+sub merge_grafanaentries (\@\@) {
+	my ($old, $new) = @_;
+	my %r;
+	foreach my $i ( @$old ){ $r{ $$i{name} } = $i; }
+	foreach my $i ( @$new ){ $r{ $$i{name} } = $i; }
+	my @r;
+	foreach my $name ( sort keys %r ){
+		push @r, $r{$name};
+	}
+	return @r;
+}
+
+sub write_grafanaentries (\@) {
+	my ($entries) = @_;
+	my $filename = $ENTRIES;
+	my $encoder = JSON::PP->new->utf8->canonical;
+	open my $h, '>', "$filename" or do {
+		die "cannot open $filename: $OS_ERROR, stopped";
+	};
+	foreach my $entry ( @$entries ){
+		my $json = $encoder->encode($entry);
+		print $h "$json\n";
+	}
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return;
+}
+
+sub cmp_grafanaentries (\@\@) {
+	my ($left, $right) = @_;
+	my %c;
+	my $encoder = JSON::PP->new->utf8->canonical;
+	my %left;
+	foreach my $entry ( @$left ){
+		my $json = $encoder->encode($entry);
+		$c{$$entry{name}} |= 1;
+		$left{$$entry{name}} = $json;
+	}
+	my %right;
+	foreach my $entry ( @$right ){
+		my $json = $encoder->encode($entry);
+		$c{$$entry{name}} |= 1;
+		$right{$$entry{name}} = $json;
+	}
+
+	my @r;
+	while( my ($i, $r) = each %c ){
+		next if $r == 3 && $left{$i} eq $right{$i};
+		push @r, $i;
+	}
+	return @r;
+}
+
+sub search_grafanaentries ($$) {
+	my ($cache, $dashboard) = @_;
+
+debuglog "search_grafanaentries: %s", $dashboard;
+	my $entries = $$cache{entries};
+	foreach my $entry ( @$entries ){
+debuglog "search_grafanaentries: eq %s", $$entry{name};
+		next unless $$entry{name} eq $dashboard;
+		return $entry;
+	}
+	return undef;
+}
+
+sub update_grafanaentries_cache ($$) {
+	my ($conf, $cache) = @_;
+	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+	    $atime,$mtime,$ctime,$blksize,$blocks) = stat $ENTRIES;
+	if( $mtime > $$cache{mtime} ){
+		$$cache{entries} = [ read_grafanaentries ];
+		$$cache{mtime}   = $mtime;
+	}
+}
+
+sub read_all_fieldkeys_from_cache () {
+	my %cache;
+	my $filename = $FIELDKEYS;
+	open my $h, '<', "$filename" or do {
+		return ();
+	};
+	while( <$h> ){
+		chomp;
+		my ($measurement, @fieldkeys) = split m"\s+", decode_utf8 $_;
+		$cache{$measurement} = [ sort @fieldkeys ];
+	}
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return %cache;
+}
+
+sub write_all_fieldkeys_to_cache (\%) {
+	my ($cache) = @_;
+	my $filename = $FIELDKEYS;
+	open my $h, '>', "$filename" or do {
+		die "cannot open $filename: $OS_ERROR, stopped";
+	};
+	while( my ($measurement, $fieldkeys) = each %$cache ){
+		my $line = join ' ', $measurement, @$fieldkeys;
+		print $h encode_utf8($line), "\n";
+	}
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return;
+}
+
+sub cmp_all_fieldkeys (\%\%) {
+	my ($left, $right) = @_;
+	my %c;
+	foreach my $i ( keys %$left ) { $c{$i} |= 1; }
+	foreach my $i ( keys %$right ){ $c{$i} |= 2; }
+	my %d;
+	while( my ($m, $c) = each %c ){
+		if( $c == 1 || $c == 2 ){ $d{$m} = 1; next; }
+		my $l = join ' ', @{$$left{$m}};
+		my $r = join ' ', @{$$right{$m}};
+		if( $l ne $r ){ $d{$m} = 1; next; }
+	}
+	return sort keys %d;
+}
+
+sub hostservice2measurement ($$$) {
+	my ($config, $host, $service) = @_;
+	my $global_prefix = $config->{'global_prefix'};
+	my $measurement = $global_prefix eq '' ? "$host.$service" : "$global_prefix.$host.$service";
+	my $separator = $config->{'separator'};
+	$measurement =~ s/ /$separator/g;
+	my $trimpattern = $config->{'trimpattern'};
+	$measurement =~ s/$trimpattern//g if $trimpattern;
+	return $measurement;
+}
+
+sub series2measurementandtags ($) {
+	my ($series) = @_;
+	my ($measurement, @tags) = split ",", $series;
+	my %tags;
+	foreach my $tag ( @tags ){
+		my ($k, $v) = split "=", $tag;
+		$tags{$k} = $v;
+	}
+	return $measurement, %tags;
+}
+
+sub measurementandtags2series ($%) {
+	my ($measurement, %tags) = @_;
+	my $series = $measurement;
+	foreach my $k ( sort keys %tags ){
+		my $v = $tags{$k};
+		$series .= ",$k=$v";
+	}
+	return $series;
+}
+
+sub query_to_influxdb ($$) {
+	my ($conf, $q ) = @_;
+	my $ua = LWP::UserAgent->new;
+	my $server_endpoint = sprintf '%s/query?db=%s&u=%s&p=%s&q=%s',
+		$$conf{INFLUXURL},  $$conf{INFLUXDATABASE},
+		$$conf{INFLUXUSER}, $$conf{INFLUXPASSWORD}, uri_escape $q;
+	my $req = HTTP::Request->new('GET' => $server_endpoint);
+	my $t = time;
+	debuglog "influxdb-req %s", $q;
+	my $res = $ua->request($req);
+	debuglog "influxdb-res: %d sec", time - $t;
+	return $res;
+}
+
+sub query_dashboard_to_grafana ($$) {
+	my ($config, $uid) = @_;
+	my $ua = LWP::UserAgent->new;
+	my $url = $config->{GRAFANAURL} . "/api/dashboards/uid/$uid";
+	my $header = [
+        	'Authorization' => 'Bearer ' . $config->{GRAFANAAPIKEY},
+	];
+	my $req = HTTP::Request->new('GET', $url, $header);
+	debuglog "grafana-req %s", $url;
+	my $res = $ua->request($req);
+	debuglog "grafana-res code=%s", $res->code;
+	if( $res->code != 200 ){
+		debuglog "grafana-res: NG: res=%s", $res->content;
+		return undef;
+	}
+	my $r = decode_json $res->content;
+	my $type = $r->{meta}->{type};
+	my $rows = $r->{dashboard}->{rows};
+	unless( $type eq "db" and defined $rows ){
+		debuglog "grafana-res: NG: res=%s", $res->content;
+		return undef;
+	}
+
+	my @panelids;
+	foreach my $row ( @$rows ){
+		my $panels = $$row{panels};
+		next unless defined $panels;
+		foreach my $panel ( @$panels ){
+			my $panelid = $$panel{id};
+			push @panelids, $panelid;
+		}
+	}
+			
+	debuglog "grafana-res: OK: %s", join(" ", @panelids);
+	return @panelids;
+}
+
+sub register_dashboard_to_grafana ($$$$$) {
+	my ($config, $name, $rows, $tags, $option) = @_;
+	my $dashboard_json = read_template "grafana-dashboard";
+	my $dashboard_obj = decode_json $dashboard_json;
+	$$dashboard_obj{title}  = $name;
+	$$dashboard_obj{panels} = $rows;
+	$$dashboard_obj{tags}   = $tags;
+	my $request_obj = {
+		"overwrite" => \1,
+		'dashboard' => $dashboard_obj,
+	};
+	my $request_json = encode_json $request_obj;
+
+	if( $$option{print_dashboard} ){
+		my $dashboard_json = encode_json $dashboard_obj;
+		print "$dashboard_json\n";
+	}
+
+	my $ua = LWP::UserAgent->new;
+	my $url = $config->{GRAFANAURL} . "/api/dashboards/db";
+	my $header = [
+        	'Authorization' => 'Bearer ' . $config->{GRAFANAAPIKEY},
+		'Content-Type'  => 'application/json',
+	];
+	my $req = HTTP::Request->new('POST', $url, $header, $request_json);
+	debuglog "grafana-req %s", $url;
+	my $res = $ua->request($req);
+	debuglog "grafana-res code=%s", $res->code;
+
+	if( $$option{print_response} ){
+		print "status_code=", $res->code, "\n";
+		print $res->content, "\n";
+	}
+
+	if( $res->code != 200 ){
+		debuglog "grafana-res: res=%s", $res->content;
+		return undef;
+	}
+	my $r = decode_json $res->content;
+	debuglog "grafana-res status=%s", $r->{status};
+	if( $r->{status} ne "success" ){
+		return undef;
+	}
+	return $r;
+}
+
+sub query_measurements_to_influxdb ($) {
+	my ($conf ) = @_;
+	my $decoder = JSON::PP->new->utf8;
+	$decoder->relaxed( 1 );
+	my $q = "show measurements";
+	my $res = query_to_influxdb $conf, $q;
+	unless($res->is_success) {
+		printf "query: %s\n", $q;
+		printf "code: %s\nmessage: %s\n", $res->code, $res->message;
+		return ();
+	}
+	my $obj = $decoder->decode( $res->decoded_content );
+	my $series = $$obj{results}->[0]->{series}->[0]->{values};
+	my @measurements;
+	foreach my $i ( @$series ){
+		push @measurements, $i->[0];
+	}
+	return @measurements;
+}
+
+sub query_fieldkeys_to_influxdb ($$) {
+	my ($conf, $measurement ) = @_;
+	my $decoder = JSON::PP->new->utf8;
+	$decoder->relaxed( 1 );
+	my $q = "show field keys from \"$measurement\"";
+	my $res = query_to_influxdb $conf, $q;
+	unless($res->is_success) {
+		printf "query: %s\n", $q;
+		printf "code: %s\nmessage: %s\n", $res->code, $res->message;
+		return ();
+	}
+	my $obj = $decoder->decode( $res->decoded_content );
+	my $series = $$obj{results}->[0]->{series}->[0]->{values};
+	my @fieldkeys;
+	foreach my $i ( @$series ){
+		push @fieldkeys, $i->[0];
+	}
+	return @fieldkeys;
+}
+
+sub read_all_fieldkeys_from_influxdb ($) {
+	my ($conf) = @_;
+	my @measurements = query_measurements_to_influxdb $conf;
+	my $measurement_filter = $$conf{MEASURMENT_FILTER};
+	$measurement_filter = ".*" if $measurement_filter eq "";
+	my $measurement_filter_regexp = qr"^$measurement_filter$";
+
+	my %r;
+	foreach my $measurement ( @measurements ){
+		# measurement must match measurement_filter.
+		next unless $measurement =~ $measurement_filter_regexp;
+		
+		my @fieldkeys = query_fieldkeys_to_influxdb $conf, $measurement;
+		$r{$measurement} = [ sort @fieldkeys ] ;
+	}
+
+	return %r;
+}
+
+sub expand_matches ($\%\@) {
+	my ($text, $params, $matches) = @_;
+	$text =~ s{
+		\$ (?: (\d+) | \{(\d+)\} | (\w+) | \$\{(\w+)\} )
+	}{
+		my $n;
+		if   ( $1 ne '' ){ $matches->[$1]; }
+		elsif( $2 ne '' ){ $matches->[$2]; }
+		elsif( $3 ne '' ){ $params->{$3}; }
+		elsif( $4 ne '' ){ $params->{$4}; }
+	}egx;
+	return $text;
+}
+
+sub tmplfunc_match {
+	my ($text, $re) = @_;
+	if( $text =~ m"$re" ){ return 1; }
+	else                 { return undef; }
+}
+
+sub tmplfunc_sub {
+	my ($text, $re, $replace) = @_;
+	$text =~ s/$re/$replace/;
+	return $text;
+}
+
+sub tmplfunc_gsub {
+	my ($text, $re, $replace) = @_;
+	$text =~ s/$re/$replace/g;
+	return $text;
+}
+
+sub tmplfunc_split {
+	my ($text, $re) = @_;
+	return split m"$re", $text;
+}
+
+our $SERIAL = 1;
+sub tmplfunc_serial {
+	return $SERIAL++;
+}
+
+sub expand_params ($$) {
+	my ($text, $params) = @_;
+
+	my $tt = Template->new({}) or do {
+		debuglog '    cannot generate Template instance: ' . $Template::ERROR;
+		return $text;
+	};
+        my $vars = {
+		match	=> \&tmplfunc_match,
+		sub	=> \&tmplfunc_sub,
+		gsub	=> \&tmplfunc_gsub,
+		split	=> \&tmplfunc_split,
+		serial	=> \&tmplfunc_serial,
+		%$params
+        };
+
+	my $output;
+        $tt->process( \$text, $vars, \$output ) or do {
+		debuglog '    cannot process template: ' . $tt->error();
+		return $text;
+	};
+	return $output;
+}
+
+####
+
+sub expand_string ($\@;\%) {
+	my ($string, $captures, $params) = @_;
+	$string =~ s{
+		\$ (?: (\d+) | \{(\d+)\} | (\w+) | \$\{(\w+)\} )
+	}{
+		if   ( $1 ne '' ){ $$captures[$1-1]; }
+		elsif( $2 ne '' ){ $$captures[$2-1]; }
+		elsif( $3 ne '' ){ $$params{$3}; }
+		elsif( $4 ne '' ){ $$params{$4}; }
+	}egx;
+	return $string;
+}
+
+sub debuglog_namemap ($) {
+	my ($namemap) = @_; 
+
+	my $hash = $$namemap{hash};
+	foreach my $dashboard_name ( sort keys %$hash ){
+		debuglog "namemap: $dashboard_name => [";
+		my $blocks = $$hash{$dashboard_name};
+		foreach my $block_name ( sort keys %$blocks ){
+			my $fieldkeys = $$blocks{$block_name};
+			debuglog "namemap:     $block_name =>";
+			my $json = encode_json $fieldkeys;
+			debuglog "namemap:         $json";
+		}
+		debuglog "namemap: ]";
+	}
+}
+
+sub generate_namemap ($$\%) {
+	my ($conf, $dashboard_rule, $measurement_fieldkeys) = @_;
+	my %map;
+	my @list;
+	while( my ($measurement, $fieldkeys) = each %$measurement_fieldkeys ){
+		foreach my $fieldkey ( @$fieldkeys ){
+			my $hit_dashboard;
+			my $hit_block;
+			foreach my $ruleitem ( @$dashboard_rule ){
+				my ($measurement_regexp, $fieldkey_regexp,
+				     $dashboard_preexpand, $block_preexpand) =
+					@$ruleitem;
+
+				my @captures;
+				next unless $measurement =~ $measurement_regexp;
+				for (my $i = 1; $i < @+; $i++) {
+					push @captures, substr $measurement,
+						$-[$i], $+[$i] - $-[$i];
+				}
+				
+				next unless $fieldkey =~ $fieldkey_regexp;
+				for (my $i = 1; $i < @+; $i++) {
+					push @captures, substr $fieldkey,
+						$-[$i], $+[$i] - $-[$i];
+				}
+
+				$hit_dashboard = expand_string
+					$dashboard_preexpand, @captures;
+				$hit_block = expand_string
+					$block_preexpand, @captures;
+			}
+			next unless defined $hit_dashboard;
+			next unless defined $hit_block;
+			next if $hit_dashboard eq '-';
+			next if $hit_block eq '-';
+
+			push @{$map{$hit_dashboard}->{$hit_block}},
+				[$measurement, $fieldkey];
+			push @list, [
+				$hit_dashboard, $hit_block,
+				[$measurement, $fieldkey]
+			];
+		}
+	}
+
+	return {
+		'hash' => \%map,
+		'list' => \@list,
+	};
+}
+
+####
+sub pickup_all_panelobjs (\@) {
+	my ($objlist) = @_;
+
+	my @r;
+	foreach my $obj ( @$objlist ){
+		next unless ref($obj) eq 'HASH';
+
+		if( defined $$obj{type} ){
+			push @r, $obj;
+		}
+
+		if( ref($$obj{panels}) eq 'ARRAY' ){
+			my @t = pickup_all_panelobjs( @{$$obj{panels}} );
+			push @r, @t;
+		}
+	}
+	return @r;
+}
+
+sub serialize_panels (\@) {
+	my ($panels) = @_;
+	my $id = 1001;
+	foreach my $panel ( @$panels ){
+		$$panel{id} = $id;
+		$id++;
+	}
+}
+
+sub pickup_tags_from_panels (\@) {
+	my ($panels) = @_;
+	my %tags;
+	foreach my $panel ( @$panels ){
+		next unless defined $$panel{_dashboard_tags};
+
+		foreach my $tag ( @{$$panel{_dashboard_tags}} ){
+			$tags{$tag} = 1;
+		}
+	}
+	return sort keys %tags;
+}
+
+sub pickup_info_from_panels (\@) {
+	my ($panels) = @_;
+	my @infos;
+	foreach my $panel ( @$panels ){
+		my $id        = $$panel{id};
+		my $title     = $$panel{title};
+		my $relations = $$panel{_panel_relations};
+		my @performancenames;
+		foreach my $i ( @$relations ){
+			my ($measurement, $fieldkey) = split m"\s+", $i;
+			push @performancenames, $fieldkey;
+		}
+		push @infos, {
+			id    => $id,
+			title => $title,
+			performancenames => [@performancenames], # deprecated
+			relations        => $relations,
+		};
+	}
+	return @infos;
+}
+
+sub generate_block ($$$$$) {
+	my ($conf, $template_rule, $name, $blockname, $measumament_fieldkeys) = @_;
+	my $hit_template;
+	foreach my $ruleitem ( @$template_rule ){
+		my ($name_regexp, $blockname_regexp, $template_preexpand) =
+			@$ruleitem;
+
+		my @captures;
+		next unless $name =~ $name_regexp;
+		for (my $i = 1; $i < @+; $i++) {
+			push @captures,
+				substr $name, $-[$i], $+[$i] - $-[$i];
+		}
+
+		next unless $blockname =~ $blockname_regexp;
+		for (my $i = 1; $i < @+; $i++) {
+			push @captures,
+				substr $blockname, $-[$i], $+[$i] - $-[$i];
+		}
+
+		$hit_template = expand_string $template_preexpand, @captures;
+	}
+	
+	unless( defined $hit_template ){
+		print STDERR "$name, $blockname: no template.\n";
+		die;
+	}
+	next if $hit_template eq '-';
+
+	my $template_json = read_template $hit_template;
+	my $json = expand_params $template_json, {
+		DASHBOARD_NAME => $name,
+		BLOCK_NAME     => $blockname,
+		TARGETS => $measumament_fieldkeys,
+		GRAFANADATASOURCE => $$conf{GRAFANADATASOURCE},
+	};
+
+	my $rowobjs;
+	my $decoder = JSON::PP->new->utf8;
+	$decoder->relaxed( 1 );
+	eval { $rowobjs = $decoder->decode( encode_utf8("[ $json ]") ); };
+	if( $@ ){
+		debuglog "$@";
+		debuglog "decoding json: $json";
+		die "$hit_template: cannot validate, stopped";
+	}
+	return $rowobjs;
+}
+
+sub generate_dashboard ($$$$) {
+	my ($conf, $template_rule, $name, $content) = @_;
+
+	my @rows;
+	my @panels;
+	my $block_y = 0;
+	foreach my $blockname ( sort keys %$content ){
+		my $measurment_fieldkeys = $$content{$blockname};
+		my $objs = generate_block $conf, $template_rule,
+			$name, $blockname, $measurment_fieldkeys;
+		push @rows, @$objs;
+		my @block_panels = pickup_all_panelobjs @$objs;
+		push @panels, @block_panels;
+
+		foreach my $p ( @block_panels ){
+			next unless defined $$p{gridPos};
+			$$p{gridPos}->{y} += $block_y;
+		}
+		$block_y += 100;
+	}
+
+	serialize_panels @panels;
+	my @tags      = pickup_tags_from_panels @panels;
+	my @panelinfo = pickup_info_from_panels @panels;
+
+	my @blocks = keys %$content;
+	return {
+		name   => $name,
+		blocks => [@blocks],
+		tags   => [@tags],
+		rows   => [@rows],
+		panels => [@panelinfo],
+	};
+}
+
+sub generate_dashboardlist ($$$$) {
+	my ($conf, $template_rule, $namemap, $option) = @_;
+
+	my $regexp = $$option{target_dashboard};
+
+	my @r;
+	my $name2content = $$namemap{hash};
+
+	while( my ($name, $content) = each %$name2content ){
+		if( defined $regexp ){
+			next unless $name =~ $regexp;
+		}
+		my $dashboard = generate_dashboard
+			$conf, $template_rule, $name, $content;
+		push @r, $dashboard;
+	}
+	return \@r;
+}
+
+sub register_dashboard ($$$) {
+	my ($conf, $dashboard, $option) = @_;
+
+	my $r = register_dashboard_to_grafana $conf, $$dashboard{name},
+		 $$dashboard{rows}, $$dashboard{tags}, $option;
+	return {
+		'host_service' => "???,????",
+		'host'    => '???',
+		'service' => '???',
+
+		'name'    => $$dashboard{name},
+		'tags'    => $$dashboard{tags},
+		'blocks'  => $$dashboard{blocks},
+		'panels'  => $$dashboard{panels},
+		'dashboard_uid'  => $$r{uid},
+		'dashboard_slug' => $$r{slug},
+		'dashboard_id'   => $$r{id},
+	};
+}
+
+sub register_dashboardlist ($$$) {
+	my ($conf, $dashboardlist, $option) = @_;
+
+	my $regexp = $$option{target_dashboard};
+
+	my @entries;
+	foreach my $dashboard ( @$dashboardlist ){
+		if( defined $regexp ){
+			my $name = $$dashboard{name};
+			next unless $name =~ $regexp;
+		}
+		my $entry = register_dashboard $conf, $dashboard, $option;
+		push @entries, $entry;
+	}
+	return @entries;
+}
+
+sub cmd_cron ($$$) {
+	my ($conf, $namemap_rule, $template_rule) = @_;
+
+	my %last_fieldkeys = read_all_fieldkeys_from_cache; 
+	my %curr_fieldkeys = read_all_fieldkeys_from_influxdb $conf; 
+	my @measurements_diff = cmp_all_fieldkeys
+		%curr_fieldkeys, %last_fieldkeys;
+	return unless @measurements_diff;
+
+	my $namemap = generate_namemap
+		$conf, $namemap_rule, %curr_fieldkeys; 
+	debuglog_namemap $namemap;
+
+	my $dashboardlist = generate_dashboardlist
+		$conf, $template_rule, $namemap, {};
+
+	my @curr_entries = register_dashboardlist
+		$conf, $dashboardlist, {};
+
+	write_all_fieldkeys_to_cache %curr_fieldkeys;
+
+	my @last_entries = read_grafanaentries;
+	my @map_diff = cmp_grafanaentries @curr_entries, @last_entries;
+	return unless @map_diff;
+
+	write_grafanaentries @curr_entries;
+}
+
+sub cmd_namemap ($$$) {
+	my ($conf, $namemap_rule, $template_rule) = @_;
+
+	my %fieldkeys = read_all_fieldkeys_from_cache; 
+	my $namemap = generate_namemap $conf, $namemap_rule, %fieldkeys; 
+	
+	my $encoder = JSON::PP->new->utf8->canonical->pretty;
+	my $json = $encoder->encode($namemap);
+	print $json, "\n";
+}
+
+sub cmd_register ($$$$) {
+	my ($conf, $namemap_rule, $template_rule, $option) = @_;
+
+	my %fieldkeys = read_all_fieldkeys_from_cache; 
+	my $namemap = generate_namemap $conf, $namemap_rule, %fieldkeys; 
+	my $dashboardlist = generate_dashboardlist
+		$conf, $template_rule, $namemap, $option;
+
+	my @last_entries = read_grafanaentries;
+	my @entries = register_dashboardlist $conf, $dashboardlist, $option;
+	my @curr_entries = merge_grafanaentries @last_entries, @entries;
+	write_grafanaentries @curr_entries;
+}
+
+sub make_dashboard_url ($$) {
+	my ($conf, $dashboard_info) = @_;
+	my $dashboard_url = $conf->{GRAFANAURL};
+	$dashboard_url =~ s{/$}{};
+	$dashboard_url .= sprintf "/d/%s/%s", $dashboard_info->{dashboard_uid}, $dashboard_info->{dashboard_slug};
+	$dashboard_url .= "?orgId=" . $conf->{GRAFANAORGID} if $conf->{GRAFANAORGID};
+	return $dashboard_url;
+}
+
+sub make_panel_url ($$$) {
+	my ($conf, $dashboard_info, $panel_info) = @_;
+	my $panel_url = $conf->{GRAFANAURL};
+	$panel_url =~ s{/$}{};
+	$panel_url .= sprintf "/render/d-solo/%s/%s?panelId=%d&width=600&height=200&timeout=5",
+		$dashboard_info->{dashboard_uid}, $dashboard_info->{dashboard_slug},
+		$panel_info->{id};
+	$panel_url .= "&orgId=" . $conf->{GRAFANAORGID} if $conf->{GRAFANAORGID};
+	return $panel_url;
+}
+
+sub action_redirect ($$$$) {
+	my ($conf, $cache, $conn, $req) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
+
+	my $dashboard = $query{dashboard};
+	if( $query{hostname} ne '' && $query{servicedesc} ne '' ){
+		$dashboard = $query{hostname} . ',' . $query{servicedesc};
+	}
+	my $dashboard_info = search_grafanaentries $cache, $dashboard;
+
+	unless( defined $dashboard_info ){
+		$conn->send_error(RC_FORBIDDEN);
+		return;
+	}
+
+	my $dashboard_url = make_dashboard_url $conf, $dashboard_info;
+	accesslog "redirect: dashboard=%s -> url=%s",
+		$dashboard, $dashboard_url;
+	my $res = HTTP::Response->new;
+	$res->code(307);
+	$res->header('Location' => $dashboard_url);
+	$conn->send_response($res);
+}
+
+sub action_dashboard_info ($$$$) {
+	my ($conf, $cache, $conn, $req) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
+
+	my $dashboard = $query{dashboard};
+	if( $query{hostname} ne '' && $query{servicedesc} ne '' ){
+		$dashboard = $query{hostname} . ',' . $query{servicedesc};
+	}
+	my $dashboard_info = search_grafanaentries $cache, $dashboard;
+
+	unless( defined $dashboard_info ){
+		$conn->send_error(RC_FORBIDDEN);
+		return;
+	}
+	my $panel_infos = $dashboard_info->{panels} // [];
+
+	my $dashboard_url = make_dashboard_url $conf, $dashboard_info;
+	foreach my $panel_info ( @$panel_infos ){
+		my $panel_url = make_panel_url $conf, $dashboard_info, $panel_info;
+		$panel_info->{url} = $panel_url;
+	}
+
+	my $obj = {
+		"dashboard_url" => $dashboard_url,
+		"dashboard_id"  => $dashboard_info->{dashboard_id},
+		"panels" => $panel_infos,
+	};
+	my $encoder = JSON::PP->new->utf8->canonical->pretty;
+	my $json = $encoder->encode($obj);
+
+	my $res = HTTP::Response->new;
+	$res->code(200);
+	$res->header('Content-Type' => 'text/javascript');
+	$res->content($json);
+	$conn->send_response($res);
+}
+
+sub cmd_daemon ($) {
+	my ($conf) = @_;
+
+	$0 = $NAME;
+	my $d = HTTP::Daemon->new(
+		'Reuse' => 1,
+		'LocalAddr' => $conf->{'LISTENADDR'},
+		'LocalPort' => $conf->{'LISTENPORT'}
+	) or do {
+		die sprintf 'cannot listen %s:%d: %s, stopped', $conf->{'LISTENADDR'}, $conf->{'LISTENPORT'}, $OS_ERROR;
+	};
+
+	$SIG{'TERM'} = sub {
+		$d->shutdown;
+	};
+	$SIG{'HUP'} = sub {
+		if( open $LOGFH, '>>', $LOGFILE ){ $LOGFH->autoflush; }
+		else{ $LOGFH = *STDERR; }
+	};
+
+	my $cache = {};
+	update_grafanaentries_cache $conf, $cache;
+	while (my $conn = $d->accept) {
+		my $req = $conn->get_request;
+		next unless $req;
+		my $method = $req->method;
+		my $path = uri_unescape $req->uri->path;
+		accesslog 'req: method=%s path=%s', $method, $path;
+		if    ($method eq 'GET' && $path eq "/dashboard_info.js" ){
+			update_grafanaentries_cache $conf, $cache;
+			action_dashboard_info       $conf, $cache, $conn, $req;
+		}elsif($method eq 'GET' && $path eq "/redirect.html" ){
+			update_grafanaentries_cache $conf, $cache;
+			action_redirect             $conf, $cache, $conn, $req;
+		}else{
+			$conn->send_error(RC_FORBIDDEN);
+		}
+		$conn->close;
+		undef $conn;
+	}
+}
+
+####
+my $conf          = read_helper_conf;
+my $namemap_rule  = read_namemap_rule; 
+my $template_rule = read_template_rule; 
+$DEBUG = $conf->{DEBUG};
+
+####
+if    ( $ARGV[0] eq "daemon" ){
+	cmd_daemon $conf;
+	exit 0;
+}elsif( $ARGV[0] eq "cron" ){
+	cmd_cron $conf, $namemap_rule, $template_rule;
+	exit 0;
+}elsif( $ARGV[0] eq "namemap" ){
+	cmd_namemap $conf, $namemap_rule, $template_rule;
+	exit 0;
+}elsif( $ARGV[0] eq "register" ){
+	use Getopt::Long 'GetOptionsFromArray';
+	my %option;
+	my $ok = GetOptionsFromArray( [@ARGV[1..$#ARGV]],
+		"print-dashboard!" => sub { $option{print_dashboard} = $_[1]; },
+		"print-response!"  => sub { $option{print_response}  = $_[1]; },
+		"target-dashboard=s" => sub {
+			my $regexp = $_[1];
+			$option{target_dashboard} = qr"^$regexp$";
+		},
+	);
+	unless( $ok ){
+		print "specified invalid option(s).\n";
+		exit 2;
+	}
+	cmd_register $conf, $namemap_rule, $template_rule, \%option;
+	exit 0;
+}else{
+	print "usage: % $0 {daemon|cron|namemap}\n";
+	print "           or\n";
+	print "       % $0 register [OPTIONS]\n";
+	print "\n";
+	print "     OPTIONS    --print-dashboard\n";
+	print "                --print-response\n";
+	print "                --target-dashboard\n";
+	print "\n";
+	exit 0;
+}
+
+####
+=pod
+
+=encoding utf8
+
+=head1 NAME
+
+grafana-dashboard-helper
+
+=head1 SYNOPSIS
+
+grafana-dashboard-helper
+
+=head1 DESCRIPTION
+
+grafana-dashboard-helper generates Grafana panel JSONP for scripted
+dashboard from InfluxDB tags and series.
+
+This helper works as HTTP daemon. This helper is requested with hostname
+and servicedesc, and responses JSONP.
+
+=head1 OPTIONS
+
+=over 8
+
+Nothing to do.
+
+=back
+
+=head1 FILES
+
+=over 8
+
+=item F</etc/influxdb/grafana-dashboard-helper.conf>
+
+=item F</etc/influxdb/grafana-dashboard-helper.dashboardrule>
+
+=item F</etc/influxdb/grafana-dashboard-helper.template/*.tt>
+
+=item F</etc/influxdb/grafana-dashboard-helper.templaterule>
+
+=back
+
+=head1 AUTHOR
+
+SASAJIMA Toshihiro
+
+=head1 SEE ALSO
+
+L<grafana-dashboard-helper.conf(5)>
+

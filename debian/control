@@ -1,0 +1,15 @@
+Source: grafana-dashboard-helper
+Section: net
+Priority: optional
+Maintainer: SASAJIMA Toshihiro <frisky-.-gh@watao3.info>
+Build-Depends: debhelper
+Standards-Version: 10
+
+Package: grafana-dashboard-helper
+Section: net
+Architecture: all
+Depends: grafana, influxdb, liburi-query-perl, libhttp-daemon-perl, libwww-perl, libjson-xs-perl
+Description: grafana-dashboard-helper generate Grafana dashboard automatically
+ from existing influxdb measurements.
+ grafana-dashboard-helper deals naemon2influx measurements just fine.
+ .

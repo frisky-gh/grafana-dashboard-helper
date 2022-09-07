@@ -1,0 +1,18 @@
+# dashbardname		blockname		templatename
+.*			\d+_generic,.* 		generic
+.*			\d+_gcounter,.*		gcounter
+.*			\d+_gpercent,.*		gpercent
+.*			\d+_gpm,.*		gpm
+.*			\d+_gvolume,.*		gvolume
+
+.*			\d+_cpu,.*		cpu
+.*			\d+_mem,.*		mem
+.*			\d+_disk,.*		disk
+.*			\d+_port,.*		port
+.*			\d+_proc,.*		proc
+.*			\d+_link,.*		link
+.*			\d+_dev,.*		dev
+
+
+####
+

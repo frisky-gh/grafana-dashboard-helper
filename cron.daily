@@ -1,0 +1,6 @@
+#!/bin/sh
+
+test -x /usr/bin/sudo || exit 0
+test -x /usr/bin/naemon2influx-grafana-helper || exit 0
+
+sudo -u naemon /usr/bin/naemon2influx-grafana-helper cron

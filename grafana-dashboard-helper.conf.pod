@@ -1,0 +1,43 @@
+=pod
+
+=encoding utf8
+
+=head1 NAME
+
+naemon2influx-grafana-helper.conf
+
+=head1 DESCRIPTION
+
+naemon2influx-grafana-helper.conf is a configuration file
+relateing the helper daemon.
+
+=over 8
+
+=item B<LISTENADDR>, B<LISTENPORT>
+
+This specifies address / port which be listened by helper daemon.
+ 
+=item B<HELPERURL>
+
+This specifies URL of the helper which provided to browsers.
+If the helper is provided via a reverse proxy, it specifies 
+the proxy URL.
+
+=back
+
+=head1 FILES
+
+=over 8
+
+=item F</usr/bin/naemon2influx-grafana-helper>
+
+=back
+
+=head1 AUTHOR
+
+SASAJIMA Toshihiro
+
+=head1 SEE ALSO
+
+L<naemon2influx-grafana-helper(1)>
+
