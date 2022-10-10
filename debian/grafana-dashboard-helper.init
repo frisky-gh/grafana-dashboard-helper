@@ -23,7 +23,7 @@ set -e
 NAME=grafana-dashboard-helper
 DESC="grafana-dashboard-helper provides a Grafana scriped dashboard"
 DAEMON=/usr/bin/grafana-dashboard-helper
-PIDFILE=/var/run/naemon/grafana-dashboard-helper.pid
+PIDFILE=/var/run/influxdb/grafana-dashboard-helper.pid
 
 . /lib/lsb/init-functions
 if [ -f /etc/defaults/grafana-dashboard-helper ] ; then
@@ -33,9 +33,9 @@ fi
 case "$1" in
   start)
 	log_daemon_msg "Starting $NAME" || true
-	if start-stop-daemon --status --quiet --oknodo --pidfile $PIDFILE -u naemon ; then
+	if start-stop-daemon --status --quiet --oknodo --pidfile $PIDFILE -u influxdb ; then
 		log_end_msg 0 || true
-	elif start-stop-daemon --start --quiet --oknodo -m --pidfile $PIDFILE -c naemon -b --exec $DAEMON -- daemon ; then
+	elif start-stop-daemon --start --quiet --oknodo -m --pidfile $PIDFILE -c influxdb -b --exec $DAEMON -- daemon ; then
 		log_end_msg 0 || true
 	else
 		log_end_msg 1
@@ -43,7 +43,7 @@ case "$1" in
 	;;
   stop)
 	log_daemon_msg "Stopping $NAME" || true
-	if start-stop-daemon --stop --retry 10 --quiet --oknodo --pidfile $PIDFILE -u naemon ; then
+	if start-stop-daemon --stop --retry 10 --quiet --oknodo --pidfile $PIDFILE -u influxdb ; then
 		log_end_msg 0 || true
 	else
 		log_end_msg 1
@@ -51,7 +51,7 @@ case "$1" in
 	;;
   status)
 	log_daemon_msg "Status $NAME" || true
-	if start-stop-daemon --status --quiet --oknodo --pidfile $PIDFILE -u naemon ; then
+	if start-stop-daemon --status --quiet --oknodo --pidfile $PIDFILE -u influxdb ; then
 		log_end_msg 0 || true
 	else
 		log_end_msg 1
@@ -61,7 +61,7 @@ case "$1" in
 	log_daemon_msg "Restarting $NAME" || true
 	start-stop-daemon --stop --retry 10 --quiet --oknodo --pidfile $PIDFILE
 	sleep 1
-	if start-stop-daemon --start --quiet --oknodo -m --pidfile $PIDFILE -c naemon -b --exec $DAEMON -- daemon ; then
+	if start-stop-daemon --start --quiet --oknodo -m --pidfile $PIDFILE -c influxdb -b --exec $DAEMON -- daemon ; then
 		log_end_msg 0 || true
 	else
 		log_end_msg 1
@@ -69,7 +69,7 @@ case "$1" in
 	;;
   reload)
 	log_daemon_msg "Reloading $NAME" $NAME || true
-	if start-stop-daemon --stop --signal HUP --quiet --oknodo --pidfile $PIDFILE -u naemon ; then
+	if start-stop-daemon --stop --signal HUP --quiet --oknodo --pidfile $PIDFILE -u influxdb ; then
 		log_end_msg 0 || true
 	else
 		log_end_msg 1
