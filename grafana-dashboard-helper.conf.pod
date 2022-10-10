@@ -4,11 +4,11 @@
 
 =head1 NAME
 
-naemon2influx-grafana-helper.conf
+grafana-dashboard-helper.conf
 
 =head1 DESCRIPTION
 
-naemon2influx-grafana-helper.conf is a configuration file
+grafana-dashboard-helper.conf is a configuration file
 relateing the helper daemon.
 
 =over 8
@@ -23,21 +23,32 @@ This specifies URL of the helper which provided to browsers.
 If the helper is provided via a reverse proxy, it specifies 
 the proxy URL.
 
-=back
+=item B<INFLUXURL>, B<INFLUXUSER>, B<INFLUXPASSWORD>, B<INFLUXDATABASE>
 
-=head1 FILES
+grafana-dashboard-helper fetches all measurements and fields from InfluxDB.
 
-=over 8
+=item B<GRAFANAURL>, B<GRAFANAAPIKEY>, B<GRAFANAORGID>, B<GRAFANADATASOURCE>
 
-=item F</usr/bin/naemon2influx-grafana-helper>
+grafana-dashboard-helper creates Grafana dashboads automatically.
+
+=item B<MEASUREMENT_FILTER>
+
+If you want to restrict dashboard creation with several measurements
+in InfluxDB, you may specify MEASUREMENT_FILTER.
+MEASUREMENT_FILTER is regular expression (Perl compatible), and
+only measurements which name matchs MEASUREMENT_FILTER are created dashboards.
+
+=item B<DEBUG>
+
+You want to output more verbose logs, specify 1 .
 
 =back
 
 =head1 AUTHOR
 
-SASAJIMA Toshihiro
+SASAJIMA, Toshihiro
 
 =head1 SEE ALSO
 
-L<naemon2influx-grafana-helper(1)>
+L<grafana-dashboard-helper(1)>
 

@@ -1,5 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: naemon2influx-grafana-helper
+Upstream-Name: grafana-dashboard-helper
+Upstream-Contact: <preferred name and address to reach the upstream project>
 Source: <url://example.com>
 
 Files: *
@@ -8,7 +9,7 @@ Copyright: <years> <put author's name and email here>
 License: MIT
 
 Files: debian/*
-Copyright: 2018 root <root@unknown>
+Copyright: 2022 frisky-gh <frisky-.-gh@watao3.info>
 License: MIT
 
 License: MIT
@@ -26,11 +27,15 @@ License: MIT
  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
- CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
- TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
+ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # Please also look if there are files or directories which have a
 # different copyright/license attached and list them here.
 # Please avoid picking licenses with terms that are more restrictive than the
 # packaged work, as it may make Debian's contributions unacceptable upstream.
+#
+# If you need, there are some extra license texts available in two places:
+#   /usr/share/debhelper/dh_make/licenses/
+#   /usr/share/common-licenses/

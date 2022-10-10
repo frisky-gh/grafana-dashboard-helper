@@ -1,0 +1,51 @@
+=pod
+
+=encoding utf8
+
+=head1 NAME
+
+grafana-dashboard-helper
+
+=head1 DESCRIPTION
+
+grafana-dashboard-helper fetches all measurements and fields from InfluxDB,
+and creates Grafana dashboads automatically.
+
+=head1 SYNOPSIS
+
+=over 8
+
+grafana-dashboard-helper cron
+
+grafana-dashboard-helper daemon
+
+=back
+
+=head1 FILES
+
+=over 8
+
+=item F</usr/bin/grafana-dashboard-helper>
+
+=item F</etc/influxdb/grafana-dashboard-helper.conf>
+
+=item F</etc/influxdb/grafana-dashboard-helper.namemaprule>
+
+=item F</etc/influxdb/grafana-dashboard-helper.templaterule>
+
+=item F</etc/influxdb/grafana-dashboard-helper.template/*.tt>
+
+=item F</var/lib/influxdb/grafana-dashboard-helper.fieldkeys>
+
+=item F</var/lib/influxdb/grafana-dashboard-helper.entries>
+
+=back
+
+=head1 AUTHOR
+
+SASAJIMA, Toshihiro
+
+=head1 SEE ALSO
+
+L<grafana-dashboard-helper(1)>
+

@@ -1,15 +1,16 @@
 Source: grafana-dashboard-helper
-Section: net
+Section: unknown
 Priority: optional
-Maintainer: SASAJIMA Toshihiro <frisky-.-gh@watao3.info>
-Build-Depends: debhelper
-Standards-Version: 10
+Maintainer: frisky-gh <frisky-.-gh@watao3.info>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Homepage: <insert the upstream URL, if relevant>
+#Vcs-Browser: https://salsa.debian.org/debian/grafana-dashboard-helper
+#Vcs-Git: https://salsa.debian.org/debian/grafana-dashboard-helper.git
+Rules-Requires-Root: no
 
 Package: grafana-dashboard-helper
-Section: net
-Architecture: all
-Depends: grafana, influxdb, liburi-query-perl, libhttp-daemon-perl, libwww-perl, libjson-xs-perl
-Description: grafana-dashboard-helper generate Grafana dashboard automatically
- from existing influxdb measurements.
- grafana-dashboard-helper deals naemon2influx measurements just fine.
- .
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: <insert up to 60 chars description>
+ <insert long description, indented with spaces>

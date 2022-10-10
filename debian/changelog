@@ -1,11 +1,5 @@
-naemon2influx-grafana-helper (0.2-1) UNRELEASED; urgency=medium
-
-  * change grafana dashboard generating rules.
-
- -- SASAJIMA Toshihiro <frisky-.-gh@watao3.info>  Thu, 22 Aug 2019 13:53:16 +0900
-
-naemon2influx-grafana-helper (0.1-1) unstable; urgency=medium
+grafana-dashboard-helper (0.3-1) unstable; urgency=medium
 
   * Initial release.
 
- -- SASAJIMA Toshihiro <frisky-.-gh@watao3.info>  Sun, 20 May 2018 00:58:41 +0900
+ -- frisky-gh <frisky-.-gh@watao3.info>  Mon, 10 Oct 2022 09:53:39 +0900

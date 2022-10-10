@@ -2,7 +2,11 @@
 /debian/*.log
 /debian/debhelper-build-stamp
 /debian/naemon2influx-grafana-helper/
+/debian/grafana-dashboard-helper/
 /debian/source
+/debian/.debhelper/
+/debian/*.ex
+/debian/*.EX
 /*.gz
 
 !Build/

@@ -1,0 +1,32 @@
+=pod
+
+=encoding utf8
+
+=head1 NAME
+
+grafana-dashboard-helper.templaterule
+
+=head1 DESCRIPTION
+
+grafana-dashboard-helper.templaterules specifies rules of translation from
+Grafana block name to Helper template name.
+
+=over 8
+
+Grafana       grafana-dashboard-helper
+----------    ------------------------
+block name => template name
+
+=back
+
+Template files are stored in /etc/influxdb/grafana-dashboard-helper.template
+directory.
+
+=head1 AUTHOR
+
+SASAJIMA, Toshihiro
+
+=head1 SEE ALSO
+
+L<grafana-dashboard-helper.namemaprule>
+
