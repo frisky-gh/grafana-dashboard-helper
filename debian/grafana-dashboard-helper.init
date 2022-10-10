@@ -1,0 +1,81 @@
+#!/bin/bash
+#
+# grafana-dashboard-helper    Startup script for grafana-dashboard-helper
+#
+# chkconfig: - 90 10
+# description: provides infomations of Grafana dashboards created from measurements of InfluxDB
+# processname: grafana-dashboard-helper
+
+### BEGIN INIT INFO
+# Provides: grafana-dashboard-helper
+# Required-Start: $network $local_fs $remote_fs
+# Required-Stop: $network $local_fs $remote_fs
+# Should-Start: $syslog $named
+# Should-Stop: $syslog $named
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: start and stop grafana-dashboard-helper
+# Description: provides infomations of Grafana dashboards created from measurements of InfluxDB
+### END INIT INFO
+
+set -e
+
+NAME=grafana-dashboard-helper
+DESC="grafana-dashboard-helper provides a Grafana scriped dashboard"
+DAEMON=/usr/bin/grafana-dashboard-helper
+PIDFILE=/var/run/naemon/grafana-dashboard-helper.pid
+
+. /lib/lsb/init-functions
+if [ -f /etc/defaults/grafana-dashboard-helper ] ; then
+	. /etc/defaults/grafana-dashboard-helper
+fi
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $NAME" || true
+	if start-stop-daemon --status --quiet --oknodo --pidfile $PIDFILE -u naemon ; then
+		log_end_msg 0 || true
+	elif start-stop-daemon --start --quiet --oknodo -m --pidfile $PIDFILE -c naemon -b --exec $DAEMON -- daemon ; then
+		log_end_msg 0 || true
+	else
+		log_end_msg 1
+	fi
+	;;
+  stop)
+	log_daemon_msg "Stopping $NAME" || true
+	if start-stop-daemon --stop --retry 10 --quiet --oknodo --pidfile $PIDFILE -u naemon ; then
+		log_end_msg 0 || true
+	else
+		log_end_msg 1
+	fi
+	;;
+  status)
+	log_daemon_msg "Status $NAME" || true
+	if start-stop-daemon --status --quiet --oknodo --pidfile $PIDFILE -u naemon ; then
+		log_end_msg 0 || true
+	else
+		log_end_msg 1
+	fi
+	;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $NAME" || true
+	start-stop-daemon --stop --retry 10 --quiet --oknodo --pidfile $PIDFILE
+	sleep 1
+	if start-stop-daemon --start --quiet --oknodo -m --pidfile $PIDFILE -c naemon -b --exec $DAEMON -- daemon ; then
+		log_end_msg 0 || true
+	else
+		log_end_msg 1
+	fi
+	;;
+  reload)
+	log_daemon_msg "Reloading $NAME" $NAME || true
+	if start-stop-daemon --stop --signal HUP --quiet --oknodo --pidfile $PIDFILE -u naemon ; then
+		log_end_msg 0 || true
+	else
+		log_end_msg 1
+	fi
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart|reload|force-reload}"
+	exit 2
+esac
