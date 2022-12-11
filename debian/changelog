@@ -1,4 +1,4 @@
-grafana-dashboard-helper (0.3-1.1) UNRELEASED; urgency=medium
+grafana-dashboard-helper (0.4-1) UNRELEASED; urgency=medium
 
   * Add support for dashboard permissions.
 
