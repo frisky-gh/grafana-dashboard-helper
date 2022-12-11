@@ -571,8 +571,6 @@ sub register_permission_to_grafana ($$$) {
 	my $request_obj = { items => \@p };
 	my $request_json = encode_json $request_obj;
 
-print STDERR "DEBUG: $request_json\n";
-
 	my $r = query_to_grafana $conf,
 		"/api/dashboards/uid/$dashboard_uid/permissions", "apikey",
 		$request_json;
@@ -1066,7 +1064,6 @@ sub generate_permissions ($$@) {
 sub register_permissions ($\%\@\%) {
 	my ($conf, $perms, $entries, $users) = @_;
 
-print STDERR "DEBUG: register_permissions: 1\n";
 	my %dashboard2uid;
 	foreach my $e ( @$entries ){
 		my $name = $$e{name};
@@ -1080,7 +1077,6 @@ print STDERR "DEBUG: register_permissions: 1\n";
 		$user2id{$name} = $id;
 	}
 
-print STDERR "DEBUG: register_permissions: 2\n";
 	while( my ($dashboard, $users) = each %$perms ){
 		my $dashboard_uid = $dashboard2uid{$dashboard};
 		my @user_ids;
