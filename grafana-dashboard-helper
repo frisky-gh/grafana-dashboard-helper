@@ -10,16 +10,20 @@ use HTTP::Status;
 use LWP::UserAgent;
 use JSON::PP;
 use Template;
+use MIME::Base64;
 use strict;
 
-our $NAME          = 'grafana-dashboard-helper';
-our $HELPER_CONF   = "/etc/influxdb/$NAME.conf";
-our $NAMEMAPRULE   = "/etc/influxdb/$NAME.namemaprule";
-our $TEMPLATERULE  = "/etc/influxdb/$NAME.templaterule";
-our $TEMPLATEDIR   = "/etc/influxdb/$NAME.template";
-our $ENTRIES       = "/var/lib/influxdb/$NAME.entries";
-our $FIELDKEYS     = "/var/lib/influxdb/$NAME.fieldkeys";
-our $LOGFILE       = "/var/log/influxdb/$NAME.log";
+our $NAME           = 'grafana-dashboard-helper';
+our $HELPER_CONF    = "/etc/influxdb/$NAME.conf";
+our $NAMEMAPRULE    = "/etc/influxdb/$NAME.namemaprule";
+our $TEMPLATERULE   = "/etc/influxdb/$NAME.templaterule";
+our $PERMISSIONRULE = "/etc/influxdb/$NAME.permissionrule";
+our $TEMPLATEDIR    = "/etc/influxdb/$NAME.template";
+our $ENTRIES        = "/var/lib/influxdb/$NAME.entries";
+our $USERS          = "/var/lib/influxdb/$NAME.users";
+our $PERMISSIONS    = "/var/lib/influxdb/$NAME.permissions";
+our $FIELDKEYS      = "/var/lib/influxdb/$NAME.fieldkeys";
+our $LOGFILE        = "/var/log/influxdb/$NAME.log";
 
 ####
 our $LOGFH;
@@ -76,15 +80,17 @@ sub read_helper_conf () {
 		'LISTENPORT' => 46849,
 		'HELPERURL' => 'http://localhost:46849/',
 
-		'GRAFANADATASOURCE' => 'influxdb',
-		'GRAFANAURL'        => 'http://localhost/',
-		'GRAFANAAPIKEY'     => 'AAAAAA',
-		'GRAFANAORGID'      => 'undef',
+		'GRAFANADATASOURCE'  => 'influxdb',
+		'GRAFANAURL'         => 'http://localhost/',
+		'GRAFANAAPIKEY'      => 'AAAAAA',
+		'GRAFANAADMINUSER'   => '',
+		'GRAFANAADMINPASSWD' => '',
+		'GRAFANAORGID'       => 'undef',
 
-		'INFLUXURL'	    => 'http://localhost:18520',
-		'INFLUXUSER'	    => 'naemon',
-		'INFLUXPASSWORD'    => 'naemonadmin',
-		'INFLUXDATABASE'    => 'NCRTDB',
+		'INFLUXURL'	     => 'http://localhost:18520',
+		'INFLUXUSER'	     => 'naemon',
+		'INFLUXPASSWORD'     => 'naemonadmin',
+		'INFLUXDATABASE'     => 'NCRTDB',
 
 		'DEBUG' => 0,
 	);
@@ -148,6 +154,29 @@ sub read_template_rule () {
 		push @rules, [
 			$dashboard_regexp, $block_regexp, $template_preexpand
 		];
+	}
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return \@rules;
+}
+
+sub read_permission_rule () {
+	my $filename = $PERMISSIONRULE;
+	my @rules;
+
+	open my $h, '<', $filename or do {
+		die "cannot open $filename: $OS_ERROR, stopped";
+	};
+	while (<$h>) {
+		next if m"^\s*(#|$)";
+		unless( m"^(\S+)\s+(-|\+)?(\S.*)$" ){
+			die "$filename:$.: illegal format, stopped";
+		}
+		my $dashboard_regexp = qr"^$1$";
+		my $operator         = $2;
+		my @users            = split m"\s+", $3;
+		push @rules, [ $dashboard_regexp, $operator, \@users ];
 	}
 	close $h or do {
 		die "close failed for $filename: $OS_ERROR, stopped";
@@ -265,6 +294,32 @@ sub update_grafanaentries_cache ($$) {
 	}
 }
 
+sub read_all_users_from_cache () {
+	my $filename = $USERS;
+	open my $h, '<', "$filename" or do {
+		return ();
+	};
+	my $c = join "", <$h>;
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	my $var = decode_json $c;
+	return %$var;
+}
+
+sub write_all_users_to_cache (\%) {
+	my ($cache) = @_;
+	my $filename = $USERS;
+	open my $h, '>', "$filename" or do {
+		die "cannot open $filename: $OS_ERROR, stopped";
+	};
+	print $h encode_json($cache), "\n";
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return;
+}
+
 sub read_all_fieldkeys_from_cache () {
 	my %cache;
 	my $filename = $FIELDKEYS;
@@ -298,6 +353,47 @@ sub write_all_fieldkeys_to_cache (\%) {
 	return;
 }
 
+sub read_all_permissions_from_cache () {
+	my $filename = $PERMISSIONS;
+	open my $h, '<', "$filename" or do {
+		return ();
+	};
+	my $c = join "", <$h>;
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	my $var = decode_json $c;
+	return %$var;
+}
+
+sub write_all_permissions_to_cache (\%) {
+	my ($cache) = @_;
+	my $filename = $PERMISSIONS;
+	open my $h, '>', "$filename" or do {
+		die "cannot open $filename: $OS_ERROR, stopped";
+	};
+	print $h encode_json($cache), "\n";
+	close $h or do {
+		die "close failed for $filename: $OS_ERROR, stopped";
+	};
+	return;
+}
+
+sub cmp_all_users (\%\%) {
+	my ($left, $right) = @_;
+	my %c;
+	foreach my $i ( keys %$left ) { $c{$i} |= 1; }
+	foreach my $i ( keys %$right ){ $c{$i} |= 2; }
+	my %d;
+	while( my ($m, $c) = each %c ){
+		if( $c == 1 || $c == 2 ){ $d{$m} = 1; next; }
+		my $l = $$left{$m};
+		my $r = $$right{$m};
+		if( $$l{id} ne $$r{id} ){ $d{$m} = 1; next; }
+	}
+	return sort keys %d;
+}
+
 sub cmp_all_fieldkeys (\%\%) {
 	my ($left, $right) = @_;
 	my %c;
@@ -309,6 +405,21 @@ sub cmp_all_fieldkeys (\%\%) {
 		my $l = join ' ', @{$$left{$m}};
 		my $r = join ' ', @{$$right{$m}};
 		if( $l ne $r ){ $d{$m} = 1; next; }
+	}
+	return sort keys %d;
+}
+
+sub cmp_all_permissions (\%\%) {
+	my ($left, $right) = @_;
+	my %c;
+	foreach my $i ( keys %$left ) { $c{$i} |= 1; }
+	foreach my $i ( keys %$right ){ $c{$i} |= 2; }
+	my %d;
+	while( my ($dashboardname, $c) = each %c ){
+		if( $c == 1 || $c == 2 ){ $d{$dashboardname} = 1; next; }
+		my $l = join ' ', @{$$left{$dashboardname}};
+		my $r = join ' ', @{$$right{$dashboardname}};
+		if( $l ne $r ){ $d{$dashboardname} = 1; next; }
 	}
 	return sort keys %d;
 }
@@ -359,26 +470,53 @@ sub query_to_influxdb ($$) {
 	return $res;
 }
 
-sub query_dashboard_to_grafana ($$) {
-	my ($config, $uid) = @_;
+sub query_to_grafana ($$$;$) {
+	my ($config, $api, $authtype, $reqdata) = @_;
 	my $ua = LWP::UserAgent->new;
-	my $url = $config->{GRAFANAURL} . "/api/dashboards/uid/$uid";
+	my $url = $config->{GRAFANAURL} . $api;
+
+	my $authtoken;
+	if( $authtype eq 'apikey' ){
+		$authtoken = "Bearer " . $$config{GRAFANAAPIKEY};
+	}else{
+		$authtoken = "Basic " . encode_base64(
+			$$config{GRAFANAADMINUSER} . ":" .
+			$$config{GRAFANAADMINPASSWD}
+		);
+	}
 	my $header = [
-        	'Authorization' => 'Bearer ' . $config->{GRAFANAAPIKEY},
+		'Authorization' => $authtoken,
+		'Content-Type'  => 'application/json',
 	];
-	my $req = HTTP::Request->new('GET', $url, $header);
-	debuglog "grafana-req %s", $url;
+        my $req;
+	if( defined $reqdata ){
+		$req = HTTP::Request->new('POST', $url, $header, $reqdata);
+	}else{
+		$req = HTTP::Request->new('GET',  $url, $header);
+	}
+	debuglog "grafana-req: %s", $url;
 	my $res = $ua->request($req);
-	debuglog "grafana-res code=%s", $res->code;
+	debuglog "grafana-res: code=%s", $res->code;
+
 	if( $res->code != 200 ){
 		debuglog "grafana-res: NG: res=%s", $res->content;
 		return undef;
 	}
+	if( $config->{DEBUG_GRAFANAAPI} ){
+		debuglog "grafana-res: OK: res=%s", $res->content;
+	}
 	my $r = decode_json $res->content;
+	return $r;
+}
+
+sub query_dashboard_to_grafana ($$) {
+	my ($config, $uid) = @_;
+	my $r = query_to_grafana $config, "/api/dashboards/uid/$uid", "apikey";
+	return undef unless $r;
 	my $type = $r->{meta}->{type};
 	my $rows = $r->{dashboard}->{rows};
 	unless( $type eq "db" and defined $rows ){
-		debuglog "grafana-res: NG: res=%s", $res->content;
+		debuglog "query_dashboard_to_grafana: NG: %s", encode_json($r);
 		return undef;
 	}
 
@@ -397,7 +535,7 @@ sub query_dashboard_to_grafana ($$) {
 }
 
 sub register_dashboard_to_grafana ($$$$$) {
-	my ($config, $name, $rows, $tags, $option) = @_;
+	my ($conf, $name, $rows, $tags, $option) = @_;
 	my $dashboard_json = read_template "grafana-dashboard";
 	my $dashboard_obj = decode_json $dashboard_json;
 	$$dashboard_obj{title}  = $name;
@@ -409,37 +547,63 @@ sub register_dashboard_to_grafana ($$$$$) {
 	};
 	my $request_json = encode_json $request_obj;
 
-	if( $$option{print_dashboard} ){
-		my $dashboard_json = encode_json $dashboard_obj;
-		print "$dashboard_json\n";
-	}
+	my $r = query_to_grafana $conf, "/api/dashboards/db", "apikey",
+		$request_json;
+	return undef unless $r;
 
-	my $ua = LWP::UserAgent->new;
-	my $url = $config->{GRAFANAURL} . "/api/dashboards/db";
-	my $header = [
-        	'Authorization' => 'Bearer ' . $config->{GRAFANAAPIKEY},
-		'Content-Type'  => 'application/json',
-	];
-	my $req = HTTP::Request->new('POST', $url, $header, $request_json);
-	debuglog "grafana-req %s", $url;
-	my $res = $ua->request($req);
-	debuglog "grafana-res code=%s", $res->code;
-
-	if( $$option{print_response} ){
-		print "status_code=", $res->code, "\n";
-		print $res->content, "\n";
-	}
-
-	if( $res->code != 200 ){
-		debuglog "grafana-res: res=%s", $res->content;
-		return undef;
-	}
-	my $r = decode_json $res->content;
-	debuglog "grafana-res status=%s", $r->{status};
 	if( $r->{status} ne "success" ){
 		return undef;
 	}
 	return $r;
+}
+
+sub register_permission_to_grafana ($$$) {
+	my ($conf, $dashboard_uid, $user_ids) = @_;
+
+	my @p;
+	foreach my $user_id ( @$user_ids ){
+		push @p, {
+			userId     => int($user_id),
+			permission => 4,
+		};
+	}
+
+	my $request_obj = { items => \@p };
+	my $request_json = encode_json $request_obj;
+
+print STDERR "DEBUG: $request_json\n";
+
+	my $r = query_to_grafana $conf,
+		"/api/dashboards/uid/$dashboard_uid/permissions", "apikey",
+		$request_json;
+	return undef unless $r;
+
+	if( $r->{status} ne "success" ){
+		return undef;
+	}
+	return $r;
+}
+
+sub read_all_users_from_grafana ($) {
+	my ($conf) = @_;
+	my $r = query_to_grafana $conf, "/api/users", "user";
+	return () unless $r;
+
+	my %r;
+	foreach my $i (@$r){
+		my $id    = $$i{id};
+		my $name  = $$i{name};
+		my $login = $$i{login};
+		my $is_admin    = $$i{isAdmin};
+		my $is_disabled = $$i{isDisabled};
+		next if $is_disabled eq 'true';
+		$r{$login} = {
+			id => $id,
+			name => $name,
+			is_admin => $is_admin eq 'true' ? 1 : undef,
+		};
+	}
+	return %r;
 }
 
 sub query_measurements_to_influxdb ($) {
@@ -854,32 +1018,110 @@ sub register_dashboardlist ($$$) {
 	return @entries;
 }
 
-sub cmd_cron ($$$) {
-	my ($conf, $namemap_rule, $template_rule) = @_;
+sub register_all_dashboards ($$$%) {
+	my ($conf, $namemap_rule, $template_rule, %fieldkeys) = @_;
+	my $namemap = generate_namemap
+		$conf, $namemap_rule, %fieldkeys; 
+	my $dashboardlist = generate_dashboardlist
+		$conf, $template_rule, $namemap, {};
+	my @curr_entries = register_dashboardlist
+		$conf, $dashboardlist, {};
+	return @curr_entries;
+}
 
+sub generate_permissions ($$@) {
+	my ($conf, $permission_rule, @dashboards) = @_;
+	my %dashboard2users;
+	foreach my $d ( @dashboards ){
+		my $name = $$d{name};
+		my $tags = $$d{tags};
+		foreach my $r ( @$permission_rule ){
+			my ($name_regexp, $operator, $users) = @$r;
+			next unless $name =~ m"$name_regexp";
+
+			unless( defined $dashboard2users{$name} ){
+				$dashboard2users{$name} = {};
+			}
+			my $t = $dashboard2users{$name};
+
+			if    ( $operator eq '+' ){
+				foreach my $u ( @$users ){ $$t{$u} = 1; }
+			}elsif( $operator eq '-' ){
+				foreach my $u ( @$users ){ delete $$t{$u}; }
+			}else{
+				%$t = ();
+				foreach my $u ( @$users ){ $$t{$u} = 1; }
+			}
+		}
+	}
+
+	my %r;
+	while( my ($dashboard, $users) = each %dashboard2users ){
+		next unless %$users;
+		$r{$dashboard} = [ sort keys %$users ];
+	}
+	return %r;
+}
+
+sub register_permissions ($\%\@\%) {
+	my ($conf, $perms, $entries, $users) = @_;
+
+print STDERR "DEBUG: register_permissions: 1\n";
+	my %dashboard2uid;
+	foreach my $e ( @$entries ){
+		my $name = $$e{name};
+		my $uid  = $$e{dashboard_uid};
+		$dashboard2uid{$name} = $uid;
+	}
+
+	my %user2id;
+	while( my ($name, $info) = each %$users ){
+		my $id = $$info{id};
+		$user2id{$name} = $id;
+	}
+
+print STDERR "DEBUG: register_permissions: 2\n";
+	while( my ($dashboard, $users) = each %$perms ){
+		my $dashboard_uid = $dashboard2uid{$dashboard};
+		my @user_ids;
+		foreach my $user ( @$users ){
+			my $user_id = $user2id{$user};
+			push @user_ids, $user_id;
+		}
+		register_permission_to_grafana $conf, $dashboard_uid, \@user_ids;
+	}
+}
+
+sub cmd_cron ($$$$) {
+	my ($conf, $namemap_rule, $template_rule, $permission_rule) = @_;
+
+	my %last_users = read_all_users_from_cache; 
+	my %curr_users = read_all_users_from_grafana $conf; 
+	my @users_diff = cmp_all_users %curr_users, %last_users;
+	if( @users_diff ){
+		write_all_users_to_cache %curr_users;
+	}
+
+	my @entries = read_grafanaentries;
 	my %last_fieldkeys = read_all_fieldkeys_from_cache; 
 	my %curr_fieldkeys = read_all_fieldkeys_from_influxdb $conf; 
 	my @measurements_diff = cmp_all_fieldkeys
 		%curr_fieldkeys, %last_fieldkeys;
-	return unless @measurements_diff;
+	if( @measurements_diff ){
+		@entries = register_all_dashboards $conf,
+			$namemap_rule, $template_rule, %curr_fieldkeys;
+		write_all_fieldkeys_to_cache %curr_fieldkeys;
+		write_grafanaentries @entries;
+	}
 
-	my $namemap = generate_namemap
-		$conf, $namemap_rule, %curr_fieldkeys; 
-	debuglog_namemap $namemap;
-
-	my $dashboardlist = generate_dashboardlist
-		$conf, $template_rule, $namemap, {};
-
-	my @curr_entries = register_dashboardlist
-		$conf, $dashboardlist, {};
-
-	write_all_fieldkeys_to_cache %curr_fieldkeys;
-
-	my @last_entries = read_grafanaentries;
-	my @map_diff = cmp_grafanaentries @curr_entries, @last_entries;
-	return unless @map_diff;
-
-	write_grafanaentries @curr_entries;
+	my %last_perms = read_all_permissions_from_cache; 
+	my %curr_perms = generate_permissions $conf,
+		$permission_rule, @entries;
+	my @permissions_diff = cmp_all_permissions %curr_perms, %last_perms;
+	if( @permissions_diff ){
+		register_permissions $conf, %curr_perms, @entries, %curr_users;
+		write_all_permissions_to_cache %curr_perms;
+	}
 }
 
 sub cmd_namemap ($$$) {
@@ -1033,9 +1275,10 @@ sub cmd_daemon ($) {
 }
 
 ####
-my $conf          = read_helper_conf;
-my $namemap_rule  = read_namemap_rule; 
-my $template_rule = read_template_rule; 
+my $conf            = read_helper_conf;
+my $namemap_rule    = read_namemap_rule; 
+my $template_rule   = read_template_rule; 
+my $permission_rule = read_permission_rule; 
 $DEBUG = $conf->{DEBUG};
 
 ####
@@ -1043,7 +1286,7 @@ if    ( $ARGV[0] eq "daemon" ){
 	cmd_daemon $conf;
 	exit 0;
 }elsif( $ARGV[0] eq "cron" ){
-	cmd_cron $conf, $namemap_rule, $template_rule;
+	cmd_cron $conf, $namemap_rule, $template_rule, $permission_rule;
 	exit 0;
 }elsif( $ARGV[0] eq "namemap" ){
 	cmd_namemap $conf, $namemap_rule, $template_rule;

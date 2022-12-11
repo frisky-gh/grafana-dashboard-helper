@@ -25,8 +25,8 @@
 	"y-axis": true,
 	"y_formats": [ "short" ],
 	"grid": { "leftLogBase": 1, "leftMax": null, "leftMin": 0 },
-	"gridPos": { "w": 12, "h": 6, "x": 0, "y": 0 },
-	"span": 12,
+	"gridPos": { "w": 24, "h": 6, "x": 0, "y": 0 },
+	"span": 24,
 	"legend": {
 	    "show": true,
 	    "values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
