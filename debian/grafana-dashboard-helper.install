@@ -2,6 +2,7 @@ grafana-dashboard-helper		usr/bin
 grafana-dashboard-helper.conf		etc/influxdb
 grafana-dashboard-helper.namemaprule	etc/influxdb
 grafana-dashboard-helper.templaterule	etc/influxdb
+grafana-dashboard-helper.permissionrule	etc/influxdb
 cpu.tt			etc/influxdb/grafana-dashboard-helper.template
 dev.tt			etc/influxdb/grafana-dashboard-helper.template
 disk.tt			etc/influxdb/grafana-dashboard-helper.template

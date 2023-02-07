@@ -1,3 +1,9 @@
+grafana-dashboard-helper (0.4-1) UNRELEASED; urgency=medium
+
+  * Add support for dashboard permissions.
+
+ -- frisky-gh <mcadm@mppfctrl.mppfstmg01oc.systemnotification.fccl-homecomputing.com>  Sun, 11 Dec 2022 22:10:27 +0900
+
 grafana-dashboard-helper (0.3-1) unstable; urgency=medium
 
   * Initial release.
