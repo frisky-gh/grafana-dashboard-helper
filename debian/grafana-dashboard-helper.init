@@ -5,6 +5,7 @@
 # chkconfig: - 90 10
 # description: provides infomations of Grafana dashboards created from measurements of InfluxDB
 # processname: grafana-dashboard-helper
+# pidfile: /run/grafana-dashboard-helper.pid
 
 ### BEGIN INIT INFO
 # Provides: grafana-dashboard-helper
@@ -23,7 +24,7 @@ set -e
 NAME=grafana-dashboard-helper
 DESC="grafana-dashboard-helper provides a Grafana scriped dashboard"
 DAEMON=/usr/bin/grafana-dashboard-helper
-PIDFILE=/var/run/influxdb/grafana-dashboard-helper.pid
+PIDFILE=/run/grafana-dashboard-helper.pid
 
 . /lib/lsb/init-functions
 if [ -f /etc/defaults/grafana-dashboard-helper ] ; then
