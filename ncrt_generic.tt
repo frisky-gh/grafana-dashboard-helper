@@ -1,0 +1,73 @@
+#### Generic
+####
+#### This template requires following captures:
+####     <retention_policy>
+####     <measurement>
+####     <field_key>
+####     <host>
+####     <service>
+####
+{
+	"title": "[%CAPTURED.field_key%] in [%CAPTURED.host%] (Generic)",
+	"id": 9999,
+	"datasource": "[%GRAFANADATASOURCE%]",
+        "_panel_relations": [
+            "[%CAPTURED.measurement%] [%CAPTURED.field_key%]"
+        ],
+	"_dashboard_tags" : [ "[%CAPTURED.host%]", "[%CAPTURED.service%]" ],
+	"isNew": true,
+	"editable": true,
+	"tooltip": { "shared": true, "value_type": "individual" },
+	"type": "graph",
+	"x-axis": true,
+	"y-axis": true,
+	"y_formats": [ "short" ],
+	"grid": { "leftLogBase": 1, "leftMax": null, "leftMin": null },
+	"gridPos": { "w": 24, "h": 6, "x": 0, "y": 0 },
+	"span": 12,
+	"legend": {
+	    "show": true,
+	    "values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
+	    "rightSide": true, "alignAsTable": true, "sideWidth": 300,
+	    "hideEmpty": true, "hideZero": false
+	},
+	"targets": [ {
+	    "refId": "0001",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%]" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "value" ] } ]
+	    ]
+	}, {
+	    "refId": "0002",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]/aux",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%].warn_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "warn_upper" ] } ],
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%].warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "warn_lower" ] } ],
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%].crit_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "crit_upper" ] } ],
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%].crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "crit_lower" ] } ]
+	    ]
+	} ],
+	"nullPointMode": "connected"
+}

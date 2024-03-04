@@ -1,0 +1,323 @@
+#### Block Device I/O Transaction Per Minutes
+####
+#### This template requires following captures:
+####     <retention_policy>
+####     <measurement>
+####     <field_key>
+####     <host>
+####     <service>
+####     <block_device_name>
+####
+[% shortunit="tpm" %][% longunit="times" -%]
+{
+	"title": "Block Device \"[%CAPTURED.block_device_name%]\" I/O Transaction in [%CAPTURED.host%]",
+	"id": 9999,
+	"datasource": "[%GRAFANADATASOURCE%]",
+	"_panel_relations": [
+	    "[%CAPTURED.measurement%] dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%]",
+	    "[%CAPTURED.measurement%] dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%]"
+	],
+	"isNew": true,
+	"editable": true,
+	"tooltip": { "shared": true, "value_type": "individual" },
+	"type": "graph",
+	"x-axis": true,
+	"y-axis": true,
+	"y_formats": [ "short" ],
+	"grid": { "leftLogBase": 1, "leftMax": null, "leftMin": 0 },
+	"gridPos": { "w": 12, "h": 6, "x": 0, "y": 1 },
+	"legend": {
+	    "show": true,
+	    "values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
+	    "rightSide": true, "alignAsTable": true, "sideWidth": 300,
+	    "hideEmpty": true, "hideZero": false
+	},
+	"targets": [ {
+	    "refId": "0001",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%]" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read txn/min" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%]" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write txn/min" ] } ]
+	    ]
+	}, {
+	    "refId": "0002",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]/aux",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%].warn_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_warn_upper" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%].warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_warn_lower" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%].crit_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_crit_upper" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%].crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_crit_lower" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%].warn_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_warn_upper" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%].warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_warn_lower" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%].crit_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_crit_upper" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%].crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_crit_lower" ] } ]
+	    ]
+	} ],
+	"nullPointMode": "connected"
+}, {
+	"title": "Block Device \"[%CAPTURED.block_device_name%]\" I/O Transaction (Long Term Average) in [%CAPTURED.host%]",
+	"id": 9999,
+	"datasource": "[%GRAFANADATASOURCE%]",
+	"_panel_relations": [
+	    "[%CAPTURED.measurement%] longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%]",
+	    "[%CAPTURED.measurement%] longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%]"
+	],
+	"isNew": true,
+	"editable": true,
+	"tooltip": { "shared": true, "value_type": "individual" },
+	"type": "graph",
+	"x-axis": true,
+	"y-axis": true,
+	"y_formats": [ "short" ],
+	"grid": { "leftLogBase": 1, "leftMax": null, "leftMin": 0 },
+	"gridPos": { "w": 12, "h": 6, "x": 12, "y": 1 },
+	"legend": {
+	    "show": true,
+	    "values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
+	    "rightSide": true, "alignAsTable": true, "sideWidth": 300,
+	    "hideEmpty": true, "hideZero": false
+	},
+	"targets": [ {
+	    "refId": "0001",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%]" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read/min" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%]" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write/min" ] } ]
+	    ]
+	}, {
+	    "refId": "0002",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]/aux",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%].warn_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_warn_upper" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%].warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_warn_lower" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%].crit_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_crit_upper" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%].crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_crit_lower" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%].warn_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_warn_upper" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%].warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_warn_lower" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%].crit_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_crit_upper" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%].crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_crit_lower" ] } ]
+	    ]
+	} ],
+	"nullPointMode": "connected"
+},
+#### Block Device I/O Sectors Per Minutes
+[% shortunit="spm" %][% longunit="sectors" -%]
+{
+	"title": "Block Device \"[%CAPTURED.block_device_name%]\" I/O Sectors in [%CAPTURED.host%]",
+	"id": 9999,
+	"datasource": "[%GRAFANADATASOURCE%]",
+	"_panel_relations": [
+	    "[%CAPTURED.measurement%] dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%]",
+	    "[%CAPTURED.measurement%] dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%]"
+	],
+	"isNew": true,
+	"editable": true,
+	"tooltip": { "shared": true, "value_type": "individual" },
+	"type": "graph",
+	"x-axis": true,
+	"y-axis": true,
+	"y_formats": [ "short" ],
+	"grid": { "leftLogBase": 1, "leftMax": null, "leftMin": 0 },
+	"gridPos": { "w": 12, "h": 6, "x": 0, "y": 2 },
+	"legend": {
+	    "show": true,
+	    "values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
+	    "rightSide": true, "alignAsTable": true, "sideWidth": 300,
+	    "hideEmpty": true, "hideZero": false
+	},
+	"targets": [ {
+	    "refId": "0001",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%]" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read sectors/min" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%]" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write sectors/min" ] } ]
+	    ]
+	}, {
+	    "refId": "0002",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]/aux",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%].warn_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_warn_upper" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%].warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_warn_lower" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%].crit_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_crit_upper" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-read-[%shortunit%].crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_crit_lower" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%].warn_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_warn_upper" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%].warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_warn_lower" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%].crit_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_crit_upper" ] } ],
+		[ { "type": "field", "params": [ "dev[[%CAPTURED.block_device_name%]]-write-[%shortunit%].crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_crit_lower" ] } ]
+	    ]
+	} ],
+	"nullPointMode": "connected"
+}, {
+	"title": "Block Device \"[%CAPTURED.block_device_name%]\" I/O Sectors (Long Term Average) in [%CAPTURED.host%]",
+	"id": 9999,
+	"datasource": "[%GRAFANADATASOURCE%]",
+	"_panel_relations": [
+	    "[%CAPTURED.measurement%] longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%]",
+	    "[%CAPTURED.measurement%] longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%]"
+	],
+	"isNew": true,
+	"editable": true,
+	"tooltip": { "shared": true, "value_type": "individual" },
+	"type": "graph",
+	"x-axis": true,
+	"y-axis": true,
+	"y_formats": [ "short" ],
+	"grid": { "leftLogBase": 1, "leftMax": null, "leftMin": 0 },
+	"gridPos": { "w": 12, "h": 6, "x": 12, "y": 2 },
+	"legend": {
+	    "show": true,
+	    "values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
+	    "rightSide": true, "alignAsTable": true, "sideWidth": 300,
+	    "hideEmpty": true, "hideZero": false
+	},
+	"targets": [ {
+	    "refId": "0001",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%]" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read sectors/min" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%]" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write sectors/min" ] } ]
+	    ]
+	}, {
+	    "refId": "0002",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]/aux",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%].warn_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_warn_upper" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%].warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_warn_lower" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%].crit_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_crit_upper" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-read-[%longunit%].crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "read_crit_lower" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%].warn_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_warn_upper" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%].warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_warn_lower" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%].crit_upper" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_crit_upper" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-dev[[%CAPTURED.block_device_name%]]-write-[%longunit%].crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "write_crit_lower" ] } ]
+	    ]
+	} ],
+	"nullPointMode": "connected"
+}

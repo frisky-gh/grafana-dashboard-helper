@@ -1,22 +1,20 @@
-//// Generic Counter
-////
-//// Dashboard name must be "hostname,servicedesc".
-//// Capture hostname / serviesdesc from dashboard name.
-[% m = DASHBOARD_NAME.match("(.*),(.*)") %][% hostname = m.0 %][% servicedesc = m.1 -%]
-//// naemon2influx named measurement as "hostname.servicedesc"
-[% measurement = hostname _ "." _ servicedesc -%]
-////
-//// Block name must be "*,measurement,target".
-//// Capture measurement / target from block name.
-[% m = BLOCK_NAME.match(".*,(.*),(.*)") %][% measurment = m.0 %][% target = m.1 -%]
+#### Generic Counter
+####
+#### Dashboard name must be "host,service".
+#### Capture host / serviesdesc from dashboard name.
+[% m = DASHBOARD_NAME.match("(.*),(.*)") %][% host = m.0 %][% service = m.1 -%]
+####
+#### Block name must be "*,measurement,target".
+#### Capture measurement / target from block name.
+[% m = BLOCK_NAME.match(".*,(.*),(.*),(.*)") %][% retentionpolicy = m.0 %][% measurement = m.1 %][% target = m.2 -%]
 {
-	"title": "Counter [%target%] in [%hostname%] (Generic Counter)",
+	"title": "Counter [%target%] in [%host%] (Generic Counter)",
 	"id": 9999,
 	"datasource": "[%GRAFANADATASOURCE%]",
         "_panel_relations": [
             "[%measurement%] [%target%]-cnt"
         ],
-        "_dashboard_tags" : [ "[%hostname%]", "[%servicedesc%]" ],
+        "_dashboard_tags" : [ "[%host%]", "[%service%]" ],
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
@@ -38,7 +36,7 @@
 	    "dsType": "influxdb",
 	    "resultFormat": "time_series",
 	    "alias": "$col",
-	    "query": "SELECT last(\"[%target%]-cnt\")-first(\"[%target%]-cnt\") AS \"differencial\" FROM \"[%measurement%]\" GROUP BY time(60m) fill(0)",
+	    "query": "SELECT last(\"[%target%]-cnt\")-first(\"[%target%]-cnt\") AS \"differencial\" FROM \"[% retentionpolicy %]\".\"[%measurement%]\" GROUP BY time(60m) fill(0)",
 	    "rawQuery": true
 	} ],
 	"nullPointMode": "connected"

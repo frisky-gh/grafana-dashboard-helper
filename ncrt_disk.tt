@@ -1,24 +1,22 @@
-//// Disk
-////
-//// Dashboard name must be "hostname,servicedesc".
-//// Capture hostname / serviesdesc from dashboard name.
-[% m = DASHBOARD_NAME.match("(.*),(.*)") %][% hostname = m.0 %][% servicedesc = m.1 -%]
-//// naemon2influx named measurement as "hostname.servicedesc"
-[% measurement = hostname _ "." _ servicedesc -%]
-////
-//// Block name must be "*,measurement,target".
-//// Capture measurement / target from block name.
-[% m = BLOCK_NAME.match(".*,(.*),(.*)") %][% measurement = m.0 %][% target = m.1 -%]
+#### Disk
+####
+#### This template requires following captures:
+####     <retention_policy>
+####     <measurement>
+####     <mount_point>
+####     <host>
+####     <service>
+####
 {
-	    "title": "Disk \"[%target%]\" Volume in [%hostname%]",
+	    "title": "Disk \"[%CAPTURED.mount_point%]\" Volume in [%CAPTURED.host%]",
 	    "id": 9999,
 	    "datasource": "[%GRAFANADATASOURCE%]",
             "_panel_relations": [
-                "[%measurement%] disk[[%target%]]-total",
-                "[%measurement%] disk[[%target%]]-avail",
-                "[%measurement%] disk[[%target%]]-avail-pct"
+                "[%CAPTURED.measurement%] disk[[%CAPTURED.mount_point%]]-total",
+                "[%CAPTURED.measurement%] disk[[%CAPTURED.mount_point%]]-avail",
+                "[%CAPTURED.measurement%] disk[[%CAPTURED.mount_point%]]-avail-pct"
             ],
-	    "_dashboard_tags" : [ "[%hostname%]", "[%servicedesc%]" ],
+	    "_dashboard_tags" : [ "[%CAPTURED.host%]", "[%CAPTURED.service%]" ],
 	    "isNew": true,
 	    "editable": true,
 	    "tooltip": { "shared": true, "value_type": "individual" },
@@ -28,7 +26,7 @@
 	    "y_formats": [ "mbytes" ],
 	    "grid": {},
 	    "gridPos": { "w": 12, "h": 6, "x": 0, "y": 1 },
-	    "span": 6,
+	    "span": 12,
 	    "legend": {
 		"show": true,
 		"values": true, "avg": true, "max": true, "min": true, "current": false, "total": false,
@@ -40,33 +38,46 @@
 		"dsType": "influxdb",
 		"resultFormat": "time_series",
 		"refId": "A",
-		"measurement": "[%measurement%]",
+		"policy": "[%CAPTURED.retention_policy%]",
+		"measurement": "[%CAPTURED.measurement%]",
 		"alias": "$col",
 		"groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
 		"tags": [],
 		"select": [
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-total" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-total" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "total size" ] }
 		    ],
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-avail" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-avail" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "avail size" ] }
 		    ],
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-avail-pct" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-avail-pct" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "avail%" ] }
-		    ],
+		    ]
+		]
+	    }, {
+		"refId": "0002",
+		"dsType": "influxdb",
+		"resultFormat": "time_series",
+		"refId": "A",
+		"policy": "[%CAPTURED.retention_policy%]",
+		"measurement": "[%CAPTURED.measurement%]/aux",
+		"alias": "$col",
+		"groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+		"tags": [],
+		"select": [
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-avail-pct.warn_lower" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-avail-pct.warn_lower" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "warn" ] }
 		    ],
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-avail-pct.crit_lower" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-avail-pct.crit_lower" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "crit" ] }
 		    ]
@@ -102,13 +113,13 @@
 	    ]
 },
 {
-	    "title": "Disk \"[%target%]\" i-Nodes in [%hostname%]",
+	    "title": "Disk \"[%CAPTURED.mount_point%]\" i-Nodes in [%CAPTURED.host%]",
 	    "id": 9999,
 	    "datasource": "[%GRAFANADATASOURCE%]",
             "_panel_relations": [
-                "[%measurement%] disk[[%target%]]-itotal",
-                "[%measurement%] disk[[%target%]]-iavail",
-                "[%measurement%] disk[[%target%]]-iavail-pct"
+                "[%CAPTURED.measurement%] disk[[%CAPTURED.mount_point%]]-itotal",
+                "[%CAPTURED.measurement%] disk[[%CAPTURED.mount_point%]]-iavail",
+                "[%CAPTURED.measurement%] disk[[%CAPTURED.mount_point%]]-iavail-pct"
             ],
 	    "isNew": true,
 	    "editable": true,
@@ -129,33 +140,46 @@
 		"dsType": "influxdb",
 		"resultFormat": "time_series",
 		"refId": "A",
-		"measurement": "[%measurement%]",
+		"policy": "[%CAPTURED.retention_policy%]",
+		"measurement": "[%CAPTURED.measurement%]",
 		"alias": "$col",
 		"groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
 		"tags": [],
 		"select": [
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-itotal" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-itotal" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "total size" ] }
 		    ],
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-iavail" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-iavail" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "avail size" ] }
 		    ],
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-iavail-pct" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-iavail-pct" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "avail%" ] }
-		    ],
+		    ]
+		]
+	    }, {
+		"refId": "0002",
+		"dsType": "influxdb",
+		"resultFormat": "time_series",
+		"refId": "A",
+		"policy": "[%CAPTURED.retention_policy%]",
+		"measurement": "[%CAPTURED.measurement%]/aux",
+		"alias": "$col",
+		"groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+		"tags": [],
+		"select": [
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-iavail-pct.warn_lower" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-iavail-pct.warn_lower" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "warn" ] }
 		    ],
 		    [
-			{ "type": "field", "params": [ "disk[[%target%]]-iavail-pct.crit_lower" ] },
+			{ "type": "field", "params": [ "disk[[%CAPTURED.mount_point%]]-iavail-pct.crit_lower" ] },
 			{ "type": "mean",  "params": [] },
 			{ "type": "alias", "params": [ "crit" ] }
 		    ]

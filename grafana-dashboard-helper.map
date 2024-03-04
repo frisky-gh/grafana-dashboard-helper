@@ -1,0 +1,106 @@
+#
+
+mapping_rule
+	retention_policy_matches	(?<retention_policy>.+)
+	measurement_matches	(?<measurement>ncrt\..+)
+	field_key_matches	(?<field_key>.+)
+
+	map_to_block		50,generic,<field_key>,<measurement>,<retention_policy>
+	map_to_template		ncrt_generic
+
+mapping_rule
+	measurement_matches	ncrt\.(?<host>.+)\.(?<service>[-\w]+)
+	map_to_dashboard	<host>,<service>
+
+####
+
+mapping_rule
+	field_key_matches	(.+-cnt)
+	map_to_template		ncrt_generic_counter
+
+mapping_rule
+	field_key_matches	(.+-pct)
+	map_to_template		ncrt_generic_percent
+
+mapping_rule
+	field_key_matches	((?<target>.+)-(?<unit>.pm))
+	map_to_template		ncrt_generic_per_minute
+	map_to_block		50,generic_per_minute,<target>,<unit>,<measurement>,<retention_policy>
+
+mapping_rule
+	field_key_matches	(?<volume_name>.+)-(total|used|free|avail)
+	map_to_template		ncrt_generic_volume
+	map_to_block		50,generic_volume,<volume_name>,<measurement>,<retention_policy>
+
+mapping_rule
+	field_key_matches	(longtermavg-of-)?cpu-.+
+	map_to_template		ncrt_cpu
+	map_to_block		40,cpu,<measurement>,<retention_policy>
+
+mapping_rule
+	field_key_matches	mem-\w+
+	map_to_template		ncrt_mem
+	map_to_block		40,mem,<measurement>,<retention_policy>
+
+mapping_rule
+	field_key_matches	([-\w]+-)?disk\[(?<mount_point>[^,]+)\]-i?(total|used|avail|avail-pct)
+	map_to_template		ncrt_disk
+	map_to_block		50,disk,<mount_point>,<measurement>,<retention_policy>
+
+mapping_rule
+	field_key_matches	([-\w]+-)?link\[(?<interface_name>[^,]+)\]-.x-(throughput|bytes|packets|dropped|errors|mcast|overrun|carrier|collsns)-(mbps|ppm|cnt)
+	map_to_template		ncrt_link
+	map_to_block		50,link,<interface_name>,<measurement>,<retention_policy>
+
+mapping_rule
+	field_key_matches	([-\w]+-)?port\[(?<port_number>[^,]+)\]-(conns|recvq|sendq)
+	map_to_template		ncrt_port
+	map_to_block		50,port,<port_number>,<measurement>,<retention_policy>
+
+mapping_rule
+	field_key_matches	([-\w]+-)?proc\[(?<process_name>[^,]+)\]-.*
+	map_to_template		ncrt_process
+	map_to_block		50,process,<process_name>,<measurement>,<retention_policy>
+
+mapping_rule
+	field_key_matches	(longtermavg-of-)?([-\w]+-)?dev\[(?<block_device_name>[^,]+)\]-(read|write)-\w+
+	map_to_template		ncrt_block_device
+	map_to_block		50,block_device,<block_device_name>,<measurement>,<retention_policy>
+
+####
+
+mapping_rule
+	measurement_matches	ncrt\.(?<host>.+)\.(?<service>[-\w]+)/archive
+	field_key_matches	(mean|max|min)_(?<basename>.+)
+	map_to_dashboard	<host>,<service>
+	map_to_block		80,generic_archive,<basename>,<measurement>,<retention_policy>
+	map_to_template		ncrt_generic_archive
+
+mapping_rule
+	field_key_matches 	(ncrtagent\[.*\]-.*)
+	map_to_block		90,agent,<field_key>,<measurement>,<retention_policy>
+
+####
+
+mapping_rule
+	measurement_matches	ncrt\.[-.\w]+
+	field_key_matches	(mean|max|min)_.*
+	map_to_void
+
+mapping_rule
+	measurement_matches	ncrt\.[-.\w]+
+	field_key_matches	state
+	map_to_void
+
+mapping_rule
+	measurement_matches	ncrt\..*\..*/aux
+	map_to_void
+
+mapping_rule
+	field_key_matches	.*\.(min|max)
+	map_to_void
+
+mapping_rule
+	field_key_matches	.*\.(warn|crit)_(upper|lower)
+	map_to_void
+

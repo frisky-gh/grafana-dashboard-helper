@@ -1,21 +1,21 @@
-//// Generic Percentage
-////
-//// Dashboard name must be "hostname,servicedesc".
-//// Capture hostname / serviesdesc from dashboard name.
-[% m = DASHBOARD_NAME.match("(.*),(.*)") %][% hostname = m.0 %][% servicedesc = m.1 -%]
-////
-//// Block name must be "*,measurement,target".
-//// Capture measurement / target from block name.
-[% m = BLOCK_NAME.match(".*,(.*),(.*)") %][% measurement = m.0 %][% target = m.1 -%]
-[% fieldkey = m.1 _ "-pct" -%]
+#### Generic Percentage
+####
+#### This template requires following captures:
+####     <retention_policy>
+####     <measurement>
+####     <field_key>
+####     <host>
+####     <service>
+####     <field_key>
+####
 {
-	"title": "[%target%] % in [%hostname%] (Generic Percentage)",
+	"title": "[%CAPTURED.field_key%] % in [%CAPTURED.host%] (Generic Percentage)",
 	"id": 9999,
 	"datasource": "[%GRAFANADATASOURCE%]",
         "_panel_relations": [
-            "[%measurement%] [%target%]-pct"
+            "[%CAPTURED.measurement%] [%CAPTURED.field_key%]"
         ],
-        "_dashboard_tags" : [ "[%hostname%]", "[%servicedesc%]" ],
+        "_dashboard_tags" : [ "[%CAPTURED.host%]", "[%CAPTURED.service%]" ],
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
@@ -38,22 +38,34 @@
 	    "resultFormat": "time_series",
 	    "alias": "$col",
 	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
-	    "measurement": "[%measurement%]",
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]",
 	    "tags": [],
 	    "select": [
-		[ { "type": "field", "params": [ "[%target%]-pct" ] },
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%]" ] },
 		  { "type": "mean",  "params": [] },
-		  { "type": "alias", "params": [ "value" ] } ],
-		[ { "type": "field", "params": [ "[%fieldkey%]-pct.warn_upper" ] },
+		  { "type": "alias", "params": [ "value" ] } ]
+	    ]
+	}, {
+	    "refId": "0002",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]/aux",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%].warn_upper" ] },
 		  { "type": "mean",  "params": [] },
 		  { "type": "alias", "params": [ "warn_upper" ] } ],
-		[ { "type": "field", "params": [ "[%target%]-pct.warn_lower" ] },
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%].warn_lower" ] },
 		  { "type": "mean",  "params": [] },
 		  { "type": "alias", "params": [ "warn_lower" ] } ],
-		[ { "type": "field", "params": [ "[%target%]-pct.crit_upper" ] },
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%].crit_upper" ] },
 		  { "type": "mean",  "params": [] },
 		  { "type": "alias", "params": [ "crit_upper" ] } ],
-		[ { "type": "field", "params": [ "[%target%]-pct.crit_lower" ] },
+		[ { "type": "field", "params": [ "[%CAPTURED.field_key%].crit_lower" ] },
 		  { "type": "mean",  "params": [] },
 		  { "type": "alias", "params": [ "crit_lower" ] } ]
 	    ]

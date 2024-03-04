@@ -1,23 +1,23 @@
-//// CPU
-////
-//// Dashboard name must be "hostname,servicedesc".
-//// Capture hostname / serviesdesc from dashboard name.
-[% m = DASHBOARD_NAME.match("(.*),(.*)") %][% hostname = m.0 %][% servicedesc = m.1 -%]
-////
-//// Block name must be "*,measurement".
-//// Capture measurement from block name.
-[% m = BLOCK_NAME.match(".*,(.*)") %][% measurement = m.0 -%]
+#### CPU
+####
+#### This template requires following captures:
+####     <retention_policy>
+####     <measurement>
+####     <field_key>
+####     <host>
+####     <service>
+####
 {
-	"title": "CPU Activity in [%hostname%]",
+	"title": "CPU Activity in [%CAPTURED.host%]",
 	"id": 9999,
 	"datasource": "[%GRAFANADATASOURCE%]",
         "_panel_relations": [
-            "[%measurement%] cpu-system-pct",
-            "[%measurement%] cpu-user-pct",
-            "[%measurement%] cpu-iowait-pct",
-            "[%measurement%] cpu-idle-pct"
+            "[%CAPTURED.measurement%] cpu-system-pct",
+            "[%CAPTURED.measurement%] cpu-user-pct",
+            "[%CAPTURED.measurement%] cpu-iowait-pct",
+            "[%CAPTURED.measurement%] cpu-idle-pct"
         ],
-	"_dashboard_tags" : [ "[%hostname%]", "[%servicedesc%]" ],
+	"_dashboard_tags" : [ "[%CAPTURED.host%]", "[%CAPTURED.service%]" ],
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
@@ -39,7 +39,8 @@
 	    "resultFormat": "time_series",
 	    "alias": "$col",
 	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
-	    "measurement": "[%measurement%]",
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]",
 	    "tags": [],
 	    "select": [
 		[ { "type": "field", "params": [ "cpu-system-pct" ] },
@@ -60,14 +61,14 @@
 	"stack": true,
 	"nullPointMode": "connected"
 }, {
-	"title": "CPU Idle in [%hostname%]",
+	"title": "CPU Idle in [%CAPTURED.host%]",
 	"id": "0000",
 	"datasource": "[%GRAFANADATASOURCE%]",
         "_panel_relations": [
-            "[%measurement%] longtermavg-of-cpu-system-pct",
-            "[%measurement%] longtermavg-of-cpu-user-pct",
-            "[%measurement%] longtermavg-of-cpu-iowait-pct",
-            "[%measurement%] longtermavg-of-cpu-idle-pct"
+            "[%CAPTURED.measurement%] longtermavg-of-cpu-system-pct",
+            "[%CAPTURED.measurement%] longtermavg-of-cpu-user-pct",
+            "[%CAPTURED.measurement%] longtermavg-of-cpu-iowait-pct",
+            "[%CAPTURED.measurement%] longtermavg-of-cpu-idle-pct"
         ],
 	"isNew": true,
 	"editable": true,
@@ -90,18 +91,13 @@
 	    "resultFormat": "time_series",
 	    "alias": "$col",
 	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
-	    "measurement": "[%measurement%]",
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]",
 	    "tags": [],
 	    "select": [
 		[ { "type": "field", "params": [ "longtermavg-of-cpu-idle-pct" ] },
 		  { "type": "mean",  "params": [] },
 		  { "type": "alias", "params": [ "longterm-idle" ] } ],
-		[ { "type": "field", "params": [ "longtermavg-of-cpu-idle-pct.warn_lower" ] },
-		  { "type": "mean",  "params": [] },
-		  { "type": "alias", "params": [ "warn-lower" ] } ],
-		[ { "type": "field", "params": [ "longtermavg-of-cpu-idle-pct.crit_lower" ] },
-		  { "type": "mean",  "params": [] },
-		  { "type": "alias", "params": [ "crit-lower" ] } ],
 		[ { "type": "field", "params": [ "cpu-idle-pct" ] },
 		  { "type": "mean",  "params": [] },
 		  { "type": "alias", "params": [ "idle" ] } ],
@@ -111,6 +107,23 @@
 		[ { "type": "field", "params": [ "cpu-idle-pct" ] },
 		  { "type": "min",   "params": [] },
 		  { "type": "alias", "params": [ "idle-min" ] } ]
+	    ]
+	}, {
+	    "refId": "0002",
+	    "dsType": "influxdb",
+	    "resultFormat": "time_series",
+	    "alias": "$col",
+	    "groupBy": [ { "type": "time", "params": [ "$__interval" ] } ],
+	    "policy": "[%CAPTURED.retention_policy%]",
+	    "measurement": "[%CAPTURED.measurement%]/aux",
+	    "tags": [],
+	    "select": [
+		[ { "type": "field", "params": [ "longtermavg-of-cpu-idle-pct.warn_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "warn-lower" ] } ],
+		[ { "type": "field", "params": [ "longtermavg-of-cpu-idle-pct.crit_lower" ] },
+		  { "type": "mean",  "params": [] },
+		  { "type": "alias", "params": [ "crit-lower" ] } ]
 	    ]
 	} ],
 	"nullPointMode": "connected"
