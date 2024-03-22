@@ -21,7 +21,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -59,7 +59,19 @@
 	} ],
 	"seriesOverrides": [ { "alias": "iowait", "linewidth": 0 } ],
 	"stack": true,
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }, {
 	"title": "CPU Idle in [%CAPTURED.host%]",
 	"id": "0000",
@@ -73,7 +85,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -126,5 +138,17 @@
 		  { "type": "alias", "params": [ "crit-lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }

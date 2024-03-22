@@ -20,7 +20,7 @@
 	    "isNew": true,
 	    "editable": true,
 	    "tooltip": { "shared": true, "value_type": "individual" },
-	    "type": "graph",
+	    "type": "timeseries",
 	    "x-axis": true,
 	    "y-axis": true,
 	    "y_formats": [ "mbytes" ],
@@ -37,7 +37,6 @@
 		"refId": "0001",
 		"dsType": "influxdb",
 		"resultFormat": "time_series",
-		"refId": "A",
 		"policy": "[%CAPTURED.retention_policy%]",
 		"measurement": "[%CAPTURED.measurement%]",
 		"alias": "$col",
@@ -64,7 +63,6 @@
 		"refId": "0002",
 		"dsType": "influxdb",
 		"resultFormat": "time_series",
-		"refId": "A",
 		"policy": "[%CAPTURED.retention_policy%]",
 		"measurement": "[%CAPTURED.measurement%]/aux",
 		"alias": "$col",
@@ -84,6 +82,18 @@
 		]
 	    } ],
 	    "nullPointMode": "connected",
+	    "fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	    },
 	    "yaxes": [
 		{
 		    "show": true,
@@ -124,7 +134,7 @@
 	    "isNew": true,
 	    "editable": true,
 	    "tooltip": { "shared": true, "value_type": "individual" },
-	    "type": "graph",
+	    "type": "timeseries",
 	    "x-axis": true,
 	    "y-axis": true,
 	    "grid": {},
@@ -139,7 +149,6 @@
 		"refId": "0001",
 		"dsType": "influxdb",
 		"resultFormat": "time_series",
-		"refId": "A",
 		"policy": "[%CAPTURED.retention_policy%]",
 		"measurement": "[%CAPTURED.measurement%]",
 		"alias": "$col",
@@ -166,7 +175,6 @@
 		"refId": "0002",
 		"dsType": "influxdb",
 		"resultFormat": "time_series",
-		"refId": "A",
 		"policy": "[%CAPTURED.retention_policy%]",
 		"measurement": "[%CAPTURED.measurement%]/aux",
 		"alias": "$col",
@@ -186,6 +194,18 @@
 		]
 	    } ],
 	    "nullPointMode": "connected",
+	    "fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	    },
 	    "yaxes": [
 		{
 		    "show": true, "label": "files",

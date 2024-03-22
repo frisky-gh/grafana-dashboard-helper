@@ -166,9 +166,9 @@ sub read_helper_conf (;%) {
 	$LOGFILE = $conf{LOGFILE} if defined $conf{LOGFILE};
 
 	# build non-string settings
-	$conf{RETENTION_POLICY_REGEXP} = qr"^${conf{RETENTION_POLICY_FILTER}}$";
-	$conf{MEASUREMENT_REGEXP}      = qr"^${conf{MEASUREMENT_FILTER}}$";
-	$conf{FIELD_KEY_REGEXP}        = qr"^${conf{FIELD_KEY_FILTER}}$";
+	$conf{RETENTION_POLICY_FILTER} = qr"^${conf{RETENTION_POLICY_FILTER}}$";
+	$conf{MEASUREMENT_FILTER}      = qr"^${conf{MEASUREMENT_FILTER}}$";
+	$conf{FIELD_KEY_FILTER}        = qr"^${conf{FIELD_KEY_FILTER}}$";
 
 	unless( $conf{stderr} ){
 		open $LOGFH, '>>', $LOGFILE or do {
@@ -285,7 +285,8 @@ sub read_as_json ($) {
 	close $h or do {
 		die "close failed for $filename: $OS_ERROR, stopped";
 	};
-	my $obj = $JSONCODEC->decode($c);
+	my $obj = eval { $JSONCODEC->decode($c); };
+	return undef if $@;
 	return $obj;
 }
 
@@ -380,6 +381,7 @@ sub read ($$) {
 		return 1;
 	}
 
+	main::debuglog "GDH::Template::read: read template \"%s\".", $templatename;
 	my $filename = "$main::TEMPLATEDIR/$templatename.tt";
 	open my $h, '<', "$filename" or do {
 		main::errorlog "cannot open %s: %s", $filename, $main::OS_ERROR;
@@ -449,9 +451,9 @@ sub setConfig ($) {
 	$$this{user}     = $$conf{INFLUXUSER};
 	$$this{password} = $$conf{INFLUXPASSWORD};
 
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_REGEXP};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_REGEXP};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_REGEXP};
+	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
+	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
+	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
 
 	$$this{verbose} = $$conf{verbose};
 	return $this;
@@ -741,9 +743,9 @@ sub setConfig ($) {
 	my ($this, $conf) = @_;
 
 	$$this{influx}                 = GDH::Influx->new->setConfig($conf);
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_REGEXP};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_REGEXP};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_REGEXP};
+	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
+	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
+	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
 
 	$$this{verbose} = $$conf{verbose};
 	return $this;
@@ -855,10 +857,10 @@ sub setConfig ($) {
 
 	$$this{influx}                 = GDH::Influx->new->setConfig($conf);
 
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_REGEXP};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_REGEXP};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_REGEXP};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_REGEXP};
+	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
+	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
+	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
+	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
 
 	$$this{target_fieldnames} = $$conf{target_fieldnames};
 
@@ -1067,10 +1069,10 @@ sub new () {
 sub setConfig ($) {
 	my ($this, $conf) = @_;
 
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_REGEXP};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_REGEXP};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_REGEXP};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_REGEXP};
+	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
+	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
+	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
+	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
 
 	$$this{grafanadatasource} = $$conf{GRAFANADATASOURCE};
 
@@ -1138,12 +1140,13 @@ sub update ($$) {
 	$namemap->forEach( sub {
 		my ($dashboard_name, $block_name, $template_name, $captured, $fieldnames) = @_;
  
-		next unless $dashboard_name =~ $dashboard_regexp;
+		return unless $dashboard_name =~ $dashboard_regexp;
 		if( defined $target_dashboards ){
 			return unless $$target_dashboards{$dashboard_name};
 		}
 
 		print "GDH::DashboardSources::update: generating source of \"$dashboard_name\"...\n" if $verbose;
+		print "GDH::DashboardSources::update: regexp = $dashboard_regexp\n" if $verbose;
 
 		my $template = GDH::Template->new;
 		$template->read($template_name) or die "$template_name: not found, stopped";
@@ -1176,7 +1179,7 @@ sub update ($$) {
 	# set y-location of all panels
 	while( my ($dashboardname, $blocknames) = each %$cache ){
 
-		my $panel_y = 0;
+		my $panel_y = 100;
 		my $panel_id = 1001;
 		foreach my $blockname ( sort keys %$blocknames ){
 			my $blockinfo = $$blocknames{$blockname};
@@ -1190,7 +1193,7 @@ sub update ($$) {
 				$$panelobj{id} = $panel_id;
 				$panel_id++;
 
-				if( defined $$panelobj{gridPos} ){
+				if( defined $$panelobj{gridPos} && $$panelobj{gridPos}->{y} < 100 ){
 					$$panelobj{gridPos}->{y} += $panel_y;
 				}
 			}
@@ -1272,10 +1275,10 @@ sub setConfig ($) {
 	my ($this, $conf) = @_;
 
 	$$this{grafana} = GDH::Grafana->new->setConfig($conf);
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_REGEXP};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_REGEXP};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_REGEXP};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_REGEXP};
+	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
+	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
+	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
+	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
 
 	$$this{target_dashboards} = $$conf{target_dashboards};
 
@@ -1310,7 +1313,7 @@ sub update ($$) {
 	$dashboardsrc->forEach( sub {
 		my ($dashboardname, $objs, $tags) = @_;
 
-		next unless $dashboardname =~ $dashboard_regexp;
+		return unless $dashboardname =~ $dashboard_regexp;
 		if( defined $target_dashboards ){
 			return unless $$target_dashboards{$dashboardname};
 		}
@@ -1372,10 +1375,10 @@ sub setConfig ($) {
 	my ($this, $conf) = @_;
 
 	$$this{grafanaurl} = GDH::GrafanaURL->new->setConfig($conf);
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_REGEXP};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_REGEXP};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_REGEXP};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_REGEXP};
+	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
+	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
+	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
+	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
 
 	$$this{verbose} = $$conf{verbose};
 	return $this;
@@ -1452,7 +1455,7 @@ sub update ($$$$) {
 	$namemap->forEach( sub {
 		my ($dashboardname, $blockname, $templatename, $captured, $fieldnames) = @_;
 
-		next unless $dashboardname =~ $dashboard_regexp;
+		return unless $dashboardname =~ $dashboard_regexp;
 
 		while( my ($fieldname, undef) = each %$fieldnames ){
 			$$dashboard_index{$dashboardname}->{fieldnames}->{$fieldname} = 1;
@@ -1461,14 +1464,14 @@ sub update ($$$$) {
 	$dashboardsrc->forEach( sub {
 		my ($dashboardname, $objs, $tags) = @_;
 
-		next unless $dashboardname =~ $dashboard_regexp;
+		return unless $dashboardname =~ $dashboard_regexp;
 
 		$$dashboard_index{$dashboardname}->{tags} = $tags;
 	} );
 	$dashboardsrc->forEachPanels( sub {
 		my ($dashboardname, $panelname, $paneltitle, $fieldnames) = @_;
 
-		next unless $dashboardname =~ $dashboard_regexp;
+		return unless $dashboardname =~ $dashboard_regexp;
 
 		$$dashboard_index{$dashboardname}->{panelnames}->{$panelname} = 1;
 	} );
@@ -1476,7 +1479,7 @@ sub update ($$$$) {
 	$dashboardlocations->forEach( sub {
 		my ($dashboardname, $id, $uid, $slug) = @_;
 
-		next unless $dashboardname =~ $dashboard_regexp;
+		return unless $dashboardname =~ $dashboard_regexp;
 
 		$$dashboard_index{$dashboardname}->{id}   = $id;
 		$$dashboard_index{$dashboardname}->{uid}  = $uid;
@@ -1489,7 +1492,7 @@ sub update ($$$$) {
 	$dashboardsrc->forEachPanels( sub {
 		my ($dashboardname, $panelname, $paneltitle, $fieldnames) = @_;
 
-		next unless $dashboardname =~ $dashboard_regexp;
+		return unless $dashboardname =~ $dashboard_regexp;
 
 		my $dashboard_id   = $$dashboard_index{$dashboardname}->{id};
 		my $dashboard_uid  = $$dashboard_index{$dashboardname}->{uid};
@@ -1512,7 +1515,7 @@ sub update ($$$$) {
 	$dashboardsrc->forEachPanels( sub {
 		my ($dashboardname, $panelname, $paneltitle, $fieldnames) = @_;
 
-		next unless $dashboardname =~ $dashboard_regexp;
+		return unless $dashboardname =~ $dashboard_regexp;
 
 		while( my ($fieldname, undef) = each %$fieldnames ){
 			$$fieldkey_index{$fieldname}->{dashboardnames}->{$dashboardname} = 1;
@@ -1619,6 +1622,8 @@ sub new () {
 		fieldkey_regexp        => qr"^.*$",
 		dashboard_regexp       => qr"^.*$",
 
+		target_dashboards => {},
+
 		verbose => undef,
 	};
 	return $this;
@@ -1628,10 +1633,12 @@ sub setConfig ($) {
 	my ($this, $conf) = @_;
 
 	$$this{grafana} = GDH::Grafana->new->setConfig($conf);
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_REGEXP};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_REGEXP};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_REGEXP};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_REGEXP};
+	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
+	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
+	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
+	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
+
+	$$this{target_dashboards} = $$conf{target_dashboards};
 
 	$$this{verbose} = $$conf{verbose};
 	return $this;
@@ -1657,6 +1664,7 @@ sub update ($$$) {
 
 	my $verbose = $$this{verbose};
 	my $dashboard_regexp = $$this{dashboard_regexp};
+	my $target_dashboards = $$this{target_dashboards};
 	my $cache   = $$this{cache};
 	my $grafana = $$this{grafana};
 
@@ -1665,7 +1673,10 @@ sub update ($$$) {
 	$dashboardlocations->forEach( sub {
 		my ($dashboardname, $dashboardid, $dashboarduid, $dashboardslug) = @_;
 
-		next unless $dashboardname =~ $dashboard_regexp;
+		return unless $dashboardname =~ $dashboard_regexp;
+		if( defined $target_dashboards ){
+			return unless defined $$target_dashboards{$dashboardname};
+		}
 		main::debuglog "GDH::Permissions::update: registering dashboard \"%s\"...", $dashboardname;
 
 		my $permission = $$cache{$dashboardname};
@@ -1721,10 +1732,10 @@ sub setConfig ($) {
 
 	$$this{url}   = $$conf{GRAFANAURL};
 	$$this{orgid} = $$conf{GRAFANAORGID};
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_REGEXP};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_REGEXP};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_REGEXP};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_REGEXP};
+	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
+	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
+	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
+	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
 
 	$$this{verbose} = $$conf{verbose};
 	return $this;
@@ -1862,15 +1873,19 @@ sub compareNameMapWithBackup ($$) {
 
 	my %r;
 	while( my ($k, $v) = each %keys ){
+		my ($k1, $k2) = split m"\x1c", $k;
+
 		if( $v == 1 || $v == 2 ){
-			$r{$k} = $v;
+			$r{$k1} = $v;
 			next;
 		}
-		my ($k1, $k2) = split m"\x1c", $k;
 		my $old_json = $JSONCODEC->encode( $$old{$k1}{$k2} );
 		my $new_json = $JSONCODEC->encode( $$new{$k1}{$k2} );
 		my $d = $old_json cmp $new_json;
-		$r{$k} = 3 if $d;
+		if( $d ){
+			$r{$k1} = 1;
+			next;
+		}
 	}
 	return \%r;
 }
@@ -1990,7 +2005,7 @@ sub cmd_register ($$$) {
 		if( $$conf{use_diff} ){
 			my $diff_fieldnames = $diff->compareFieldKeysWithBackup( $FIELDKEYS_FILE );
 			$diff->setTargetFieldNames( $conf, $diff_fieldnames );
-			debuglog "only %d field keys are updated.", int( keys %$diff_fieldnames );
+			debuglog "GDH::FieldKeys: only %d field keys are updated.", int( keys %$diff_fieldnames );
 		}
 	}
 
@@ -2010,7 +2025,7 @@ sub cmd_register ($$$) {
 		if( $$conf{use_diff} ){
 			my $diff_dashboards = $diff->compareNameMapWithBackup( $NAMEMAP_FILE );
 			$diff->setTargetDashboards( $conf, $diff_dashboards );
-			debuglog "only %d dashboards are updated.", int( keys %$diff_dashboards );
+			debuglog "GDH::NameMap: only %d dashboards are updated.", int( keys %$diff_dashboards );
 		}
 	}
 
@@ -2030,7 +2045,7 @@ sub cmd_register ($$$) {
 		if( $$conf{use_diff} ){
 			my $diff_dashboards = $diff->compareDashboardSourcesWithBackup( $DASHBOARDSRC_FILE );
 			$diff->setTargetDashboards( $conf, $diff_dashboards );
-			debuglog "only %d dashboards are updated.", int( keys %$diff_dashboards );
+			debuglog "GDH::DashboardSources: only %d dashboards are updated.", int( keys %$diff_dashboards );
 		}
 	}
 

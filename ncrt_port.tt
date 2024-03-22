@@ -21,7 +21,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -86,7 +86,19 @@
 		  { "type": "alias", "params": [ "longtermavg-crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }, {
 	"title": "Network Connection \"[%CAPTURED.port_number%]\" Queue Size in [%CAPTURED.host%]",
 	"id": 9999,
@@ -98,7 +110,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -163,5 +175,17 @@
 		  { "type": "alias", "params": [ "send_crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }

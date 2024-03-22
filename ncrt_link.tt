@@ -22,7 +22,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -88,7 +88,19 @@
 		  { "type": "alias", "params": [ "tx-crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }, {
 	"title": "Network Link \"[%CAPTURED.interface_name%]\" Traffic (Long Term Average) in [%CAPTURED.host%]",
 	"id": 9999,
@@ -100,7 +112,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -166,7 +178,19 @@
 		  { "type": "alias", "params": [ "tx-crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 },
 #### Packets
 {
@@ -180,7 +204,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -246,7 +270,19 @@
 		  { "type": "alias", "params": [ "tx-crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }, {
 	"title": "Network Link \"[%CAPTURED.interface_name%]\" Traffic (Packets, Long Term Average) in [%CAPTURED.host%]",
 	"id": 9999,
@@ -258,7 +294,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -324,7 +360,19 @@
 		  { "type": "alias", "params": [ "tx-crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 },
 #### Dropped
 {
@@ -338,7 +386,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -404,7 +452,19 @@
 		  { "type": "alias", "params": [ "tx-crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }, {
 	"title": "Network Link \"[%CAPTURED.interface_name%]\" Dropped Packets (Long Term Average) in [%CAPTURED.host%]",
 	"id": 9999,
@@ -416,7 +476,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -482,7 +542,19 @@
 		  { "type": "alias", "params": [ "tx-crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 },
 #### Errors
 {
@@ -496,7 +568,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -562,7 +634,19 @@
 		  { "type": "alias", "params": [ "tx-crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }, {
 	"title": "Network Link \"[%CAPTURED.interface_name%]\" Errors (Long Term Average) in [%CAPTURED.host%]",
 	"id": 9999,
@@ -574,7 +658,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -640,7 +724,19 @@
 		  { "type": "alias", "params": [ "tx-crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 },
 #### Others
 {
@@ -660,7 +756,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -756,7 +852,19 @@
 		  { "type": "alias", "params": [ "collsns_crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }, {
 	"title": "Network Link \"[%CAPTURED.interface_name%]\" Misc Packets (Long Term Average) in [%CAPTURED.host%]",
 	"id": 9999,
@@ -774,7 +882,7 @@
 	"isNew": true,
 	"editable": true,
 	"tooltip": { "shared": true, "value_type": "individual" },
-	"type": "graph",
+	"type": "timeseries",
 	"x-axis": true,
 	"y-axis": true,
 	"y_formats": [ "short" ],
@@ -870,5 +978,17 @@
 		  { "type": "alias", "params": [ "collsns_crit_lower" ] } ]
 	    ]
 	} ],
-	"nullPointMode": "connected"
+	"nullPointMode": "connected",
+	"fieldConfig": {
+		"defaults": {
+			"custom": {
+				"lineInterpolation": "stepBefore",
+				"fillOpacity": 50,
+				"gradientMode": "opacity",
+				"spanNulls": 3600000,
+				"insertNulls": 3600000,
+				"lineStyle": { "fill": "solid" }
+			}
+		}
+	}
 }
