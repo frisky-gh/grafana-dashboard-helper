@@ -1,8 +1,14 @@
-grafana-dashboard-helper (0.4-1) UNRELEASED; urgency=medium
+grafana-dashboard-helper (0.5-1) UNRELEASED; urgency=medium
+
+  * replace all graphs depended on angular plugin.
+
+ -- frisky-gh <mcadm@mppfctrl.mppfstmg01oc.systemnotification.fccl-homecomputing.com>  Mon, 25 Mar 2024 10:17:27 +0900
+
+grafana-dashboard-helper (0.4-1) unstable; urgency=medium
 
   * Add support for dashboard permissions.
 
- -- frisky-gh <mcadm@mppfctrl.mppfstmg01oc.systemnotification.fccl-homecomputing.com>  Sun, 11 Dec 2022 22:10:27 +0900
+ -- frisky-gh <mcadm@mppfctrl.mppfstmg01oc.systemnotification.fccl-homecomputing.com>  Mon, 25 Mar 2024 10:16:45 +0900
 
 grafana-dashboard-helper (0.3-1) unstable; urgency=medium
 
