@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+
+use strict;
+use JSON::XS;
+
+our $BASEDIR = $ENV{GDHSTATUSDIR} // "/var/lib/grafana-dashboard-helper";
+
+our $INFLUXDB_SERIES_DIR     = "$BASEDIR/influxdb_series";
+our $GENERATED_DASHBOARD_DIR = "$BASEDIR/generated_dashboard";
+our $UNUSED_SERIES_DIR       = "$BASEDIR/unused_series";
+
+my $codec = JSON::XS->new->utf8->canonical->relaxed( 1 )->pretty;
+
+my %source;
+opendir my $h, $INFLUXDB_SERIES_DIR or do {
+	die "$INFLUXDB_SERIES_DIR: cannot open, stopped";
+};
+while( my $seriesname = readdir $h ){
+	next if $seriesname =~ m"^\.";
+	next unless -f "$INFLUXDB_SERIES_DIR/$seriesname";
+
+	open my $i, "<", "$INFLUXDB_SERIES_DIR/$seriesname" or do {
+		die "$INFLUXDB_SERIES_DIR/$seriesname: cannot open, stopped";
+	};
+	while( <$i> ){
+		chomp;
+		$source{$seriesname}{$_} = 1;
+	}
+	close $i;
+}
+close $h;
+
+my %used;
+opendir my $h, $GENERATED_DASHBOARD_DIR or do {
+	die "$GENERATED_DASHBOARD_DIR: cannot open, stopped";
+};
+while( my $dashboardname = readdir $h ){
+	next if $dashboardname =~ m"^\.";
+	next unless -d "$GENERATED_DASHBOARD_DIR/$dashboardname";
+
+	opendir my $i, "$GENERATED_DASHBOARD_DIR/$dashboardname" or do {
+		die "$GENERATED_DASHBOARD_DIR/$dashboardname: cannot open, stopped";
+	};
+	while( my $panelfile = readdir $i ){
+		next if $panelfile =~ m"^\.";
+		next unless $panelfile =~ m"^(.*)\.fieldkeys";
+		my $panelname = $1;
+
+		open my $j, "<", "$GENERATED_DASHBOARD_DIR/$dashboardname/$panelfile" or do {
+			die "$GENERATED_DASHBOARD_DIR/$dashboardname/$panelfile: cannot open, stopped";
+		};
+		while( <$j> ){
+			chomp;
+			next unless m"^(\S+)\s+(\S+)";
+			my $series = $1;
+			my $fieldkey = $2;
+			$used{$series}{$fieldkey} = 1;
+		}
+		close $j;
+	}
+	close $i;
+}
+close $h;
+
+my %old_unused;
+opendir my $h, $UNUSED_SERIES_DIR or do {
+	die "$UNUSED_SERIES_DIR: cannot open, stopped";
+};
+while( my $seriesname = readdir $h ){
+	next if $seriesname =~ m"^\.";
+	next unless -f "$UNUSED_SERIES_DIR/$seriesname";
+
+	open my $i, "<", "$UNUSED_SERIES_DIR/$seriesname" or do {
+		die "$UNUSED_SERIES_DIR/$seriesname: cannot open, stopped";
+	};
+	while( <$i> ){
+		chomp;
+		$old_unused{$seriesname}{$_} = 1;
+	}
+	close $i;
+}
+close $h;
+
+my %unused;
+while( my ($series, $v) = each %source ){
+	while( my ($fieldkey, undef) = each %$v ){
+		next if $used{$series}{$fieldkey};
+		$unused{$series}{$fieldkey} = 1;
+	}
+}
+
+my %series_diff;
+while( my ($series, undef) = each %old_unused ){
+	$series_diff{$series} += 1;
+}
+while( my ($series, undef) = each %unused ){
+	$series_diff{$series} += 2;
+}
+
+while( my ($series, $status) = each %series_diff ){
+	if    ( $status == 1 ){ # old_used only exists
+		unlink "$UNUSED_SERIES_DIR/$series";
+		next;
+	}elsif( $status == 2 ){ # used only exists
+	}else{ # both exist
+		my $old_unused_fieldkeys = join( " ", sort keys %{$old_unused{$series}} );
+		my $unused_fieldkeys     = join( " ", sort keys %{$unused{$series}} );
+		next if $old_unused_fieldkeys eq $unused_fieldkeys;
+	}
+
+	open my $h, ">", "$UNUSED_SERIES_DIR/$series" or do {
+		die "$UNUSED_SERIES_DIR/$series: cannot open, stopped";
+	};
+	foreach my $f ( sort keys %{$unused{$series}} ){
+		print $h $f, "\n";
+	}
+	close $h;
+}
+
+exit 0;
+

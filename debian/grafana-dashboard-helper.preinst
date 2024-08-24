@@ -1,0 +1,51 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+install|upgrade)
+
+	GROUP="grafana-dashboard-helper"
+	USER="grafana-dashboard-helper"
+	DATADIR="/var/lib/grafana-dashboard-helper"
+	ADDGROUP=
+
+	# create user to avoid running server as root
+	# 1. create group if not existing
+	if ! getent group "$GROUP" > /dev/null ; then
+		echo -n "Adding group $GROUP.."
+		addgroup --quiet --system $GROUP 2>/dev/null ||true
+		echo "..done"
+  	fi
+	# 2. create homedir if not existing
+	test -d $DATADIR || mkdir -p $DATADIR
+	# 3. create user if not existing
+	if ! getent passwd "$USER" > /dev/null ; then
+		echo -n "Adding system user $USER.."
+		adduser --quiet \
+			--system \
+			--ingroup $GROUP \
+			--no-create-home \
+			--disabled-password \
+			$USER 2>/dev/null || true
+		echo "..done"
+	fi
+	# 4. adjust passwd entry
+	usermod -c "$USER Daemon" \
+		-d $DATADIR   \
+		-g $GROUP  \
+		$USER
+	# 5. adjust file and directory permissions
+	if ! dpkg-statoverride --list $DATADIR >/dev/null ; then
+		chown -R $USER:adm $DATADIR
+		chmod u=rwx,g=rxs,o= $DATADIR
+	fi
+	# 6. Add the user to the ADDGROUP group
+	if test -n "$ADDGROUP" ; then
+		if ! groups $USER | cut -d: -f2 | grep -qw $ADDGROUP; then
+       			adduser $USER $ADDGROUP
+		fi
+	fi
+	;;
+esac
+

@@ -1,0 +1,144 @@
+#!/usr/bin/perl
+
+use strict;
+use JSON::XS;
+use LWP::UserAgent;
+use URI::Escape;
+
+our $BASEDIR = $ENV{GDHSTATUSDIR} // "/var/lib/grafana-dashboard-helper";
+
+our $INPUT_DIR  = "$BASEDIR/merged_dashboard";
+our $OUTPUT_DIR = "$BASEDIR/uploaded_dashboard";
+
+our $REQUESTBODY_TEMPLATE = <<"EOF";
+{
+	"overwrite" : true,
+	"dashboard" : null
+}
+EOF
+
+my $codec = JSON::XS->new->utf8->canonical->relaxed( 1 )->pretty;
+my $ua = LWP::UserAgent->new;
+
+####
+
+foreach my $i ( "GRAFANAURL", "GRAFANATOKEN" ){
+	next if $ENV{$i} ne "";
+	die "environment: $i: not defined, stopped";
+}
+
+our $GRAFANAURL   = $ENV{GRAFANAURL};
+our $GRAFANATOKEN = $ENV{GRAFANATOKEN};
+
+$GRAFANAURL .= "/" unless $GRAFANAURL =~ m"/$";
+
+sub upload_dashboard ($) {
+	my ($dir) = @_;
+
+	open my $h, "<", "$dir/dashboard.json" or do {
+		die "$dir/dashboard.json: cannot open, stopped";
+	};
+	my $dashboard_json = join '', <$h>;
+	close $h;
+	my $dashboard_obj = eval { $codec->decode($dashboard_json); };
+	if( $@ ){
+		die "$dir/dashboard.json: illegal format, stopped";
+	}
+
+	my $obj = eval { $codec->decode($REQUESTBODY_TEMPLATE); };
+	if( $@ ){
+		die "REQUESTBODY_TEMPLATE: illegal format, stopped";
+	}
+	$$obj{dashboard} = $dashboard_obj;
+
+	my $json = eval { $codec->encode($obj); };
+	if( $@ ){
+		die "$dir/dashboard.json: illegal format, stopped";
+	}
+
+	my $url = "${GRAFANAURL}api/dashboards/db";
+	my $header = [
+		'Authorization' => "Bearer $GRAFANATOKEN",
+		'Content-Type'  => 'application/json',
+		'Accept'        => 'application/json',
+	];
+	my $req = HTTP::Request->new('POST', $url, $header, $json);
+	my $res = $ua->request($req);
+
+	if( $res->code != 200 ){
+		print "$dir/dashboard.json: upload error happened. code=" . $res->code . "\n";
+		print "$dir/dashboard.json: response body=\"" . $res->content . "\"\n";
+		return undef;
+	}
+	my $result = eval { $codec->decode($res->content); };
+	if( $@ ){
+		print "$dir/dashboard.json: illegal server respons. response body=\"" . $res->content . "\"\n";
+		return undef;
+	}
+	unless( $$result{status} eq "success" ){
+		print "$dir/dashboard.json: upload failed. response body=\"" . $res->content . "\"\n";
+		return undef;
+	}
+	return $result;
+}
+
+sub write_result ($$) {
+	my ($dir, $result) = @_;
+
+	my $json = eval { $codec->encode($result); };
+	if( $@ ){
+		die "$dir/result.json: illegal format, stopped";
+	}
+
+	open my $h, ">", "$dir/result.json" or do {
+		die "$dir/result.json: cannot open, stopped";
+	};
+	print $h $json;
+	close $h;
+
+	open my $h, ">", "$dir/url" or do {
+		die "$dir/url: cannot open, stopped";
+	};
+	print $h $$result{uid}, " ", $$result{slug}, " ", $$result{url}, "\n";
+	close $h;
+
+	return 1;
+}
+
+sub get_mtime_of_dir ($) {
+	my ($dir) = @_;
+
+	my $result_mtime;
+	opendir my $h, $dir or return undef;
+	while( my $e = readdir $h ){
+		next if $e =~ m"^\.";
+        	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat
+	       		"$dir/$e";
+		$result_mtime = $mtime if $result_mtime < $mtime;
+	}
+	close $h;
+	return $result_mtime;
+}
+
+opendir my $h, $INPUT_DIR or do {
+	die "$INPUT_DIR: cannot open, stopped";
+};
+while( my $e = readdir $h ){
+	next if $e =~ m"^\.";
+	next unless -f "$INPUT_DIR/$e/dashboard.json";
+
+	my $mtime_input  = get_mtime_of_dir "$INPUT_DIR/$e";
+	my $mtime_output = get_mtime_of_dir "$OUTPUT_DIR/$e";
+	next if defined $mtime_input and defined $mtime_output and $mtime_input < $mtime_output;
+
+	unless( -d "$OUTPUT_DIR/$e" ){
+		mkdir "$OUTPUT_DIR/$e" or die "$OUTPUT_DIR/$e: cannot create, stopped";
+	}
+	my $result = upload_dashboard "$INPUT_DIR/$e";
+	next unless defined $result;
+	write_result "$OUTPUT_DIR/$e", $result;
+}
+close $h;
+
+exit 0;
+

@@ -1,0 +1,131 @@
+#!/usr/bin/perl
+
+use strict;
+use JSON::XS;
+
+our $BASEDIR = $ENV{GDHSTATUSDIR} // "/var/lib/grafana-dashboard-helper";
+
+our $INPUT_DIR  = "$BASEDIR/generated_dashboard";
+our $OUTPUT_DIR = "$BASEDIR/validated_dashboard";
+
+my $codec = JSON::XS->new->utf8->canonical->relaxed( 1 )->pretty;
+
+sub write_if_changed ($$) {
+	my ($file, $content) = @_;
+
+	if( open my $h, "<", $file ){
+		my $old_content = join '', <$h>;
+		return undef if $content eq $old_content;
+	}
+
+	open my $h, ">", $file or do {
+		die "$file: cannot open, stopped";
+	};
+	print $h $content;
+	close $h;
+	return 1;
+}
+
+sub get_mtime_of_dir ($) {
+	my ($dir) = @_;
+
+	my $result_mtime;
+	opendir my $h, $dir or return undef;
+	while( my $e = readdir $h ){
+		next if $e =~ m"^\.";
+		my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat
+			"$dir/$e";
+		$result_mtime = $mtime if $result_mtime < $mtime;
+	}
+	close $h;
+	return $result_mtime;
+}
+
+####
+
+opendir my $h, $INPUT_DIR or do {
+	die "$INPUT_DIR: cannot open, stopped";
+};
+foreach my $dashboardname ( sort readdir $h ){
+	next if $dashboardname =~ m"^\.";
+	next unless -d "$INPUT_DIR/$dashboardname";
+	my $panel_serial = 1;
+	my $panel_abs_y  = 0;
+
+	my $mtime_input  = get_mtime_of_dir "$INPUT_DIR/$dashboardname";
+	my $mtime_output = get_mtime_of_dir "$OUTPUT_DIR/$dashboardname";
+
+	next if defined $mtime_input && defined $mtime_output && $mtime_input < $mtime_output;
+
+	unless( -d "$OUTPUT_DIR/$dashboardname" ){
+		mkdir "$OUTPUT_DIR/$dashboardname" or do {
+			die "$OUTPUT_DIR/$dashboardname: cannot create, stopped";
+		};
+	}
+
+	opendir my $i, "$INPUT_DIR/$dashboardname" or do {
+		die "$INPUT_DIR/$dashboardname: cannot open, stopped";
+	};
+	foreach my $panelblockfile ( sort readdir $i ){
+		next if $panelblockfile =~ m"^\.";
+		next unless $panelblockfile =~ m"^(.*)\.json$";
+		my $panelblockname = $1;
+
+		# read panel json
+		open my $j, "<", "$INPUT_DIR/$dashboardname/$panelfile" or do {
+			die "$INPUT_DIR/$dashboardname/$panelfile: cannot open, stopped";
+		};
+		my $json;
+		while( <$j> ){
+			next if m"^\s*(#|$)";
+			$json .= $_;
+		}
+		close $j;
+		my $obj = eval { $codec->decode( $json ); };
+		if( $@ ){
+			die "$INPUT_DIR/$dashboardname/$panelfile: invalid JSON format, stopped";
+		}
+
+		# read field keys used in the panels
+		my %fieldkeys;
+		open my $j, "<", "$INPUT_DIR/$dashboardname/$panelblockname.fieldkeys" or do {
+			die "$INPUT_DIR/$dashboardname/$panelblockname.fieldkeys: cannot open, stopped";
+		};
+		while( <$j> ){ $fieldkeys{$_} = 1; }
+		close $j;
+		my $obj = eval { $codec->decode( $json ); };
+		if( $@ ){
+			die "$INPUT_DIR/$dashboardname/$panelfile: invalid JSON format, stopped";
+		}
+
+		# validate id and gridPos in the panels
+		my $panel_height = 0;
+		my $panel_serials;
+		foreach my $p ( @$obj ){
+			next unless defined $$p{type};
+			next unless defined $$p{gridPos};
+			next unless defined $$p{title};
+
+			my $title = $$p{title};
+			$panel_serials .= "$panel_serial\t$title\n";
+
+			$$p{id} = ($panel_serial++) + 0;
+			$$p{gridPos}{y} += $panel_abs_y;
+			$panel_height += $$p{gridPos}{h};
+		}
+		$panel_abs_y += $panel_height;
+
+		my $panel_fieldkeys = join "", sort keys %fieldkeys;
+		my $panel_json = $codec->encode($obj) . "\n";
+
+		# write panels, field keys
+		write_if_changed "$OUTPUT_DIR/$dashboardname/$panelblockname.serials",   $panel_serials;
+		write_if_changed "$OUTPUT_DIR/$dashboardname/$panelblockname.fieldkeys", $panel_fieldkeys;
+		write_if_changed "$OUTPUT_DIR/$dashboardname/$panelblockname.json",      $panel_json;
+	}
+	close $i;
+}
+close $h;
+
+exit 0;
+

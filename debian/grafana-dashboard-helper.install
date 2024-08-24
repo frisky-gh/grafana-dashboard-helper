@@ -1,19 +1,15 @@
 grafana-dashboard-helper		usr/bin
-grafana-dashboard-helper.conf		etc/influxdb
-grafana-dashboard-helper.map		etc/influxdb
-grafana-dashboard-helper.permission	etc/influxdb
-grafana-dashboard.tt			etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_block_device.tt			etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_cpu.tt				etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_deviopm.tt 			etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_disk.tt				etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_generic.tt 			etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_generic_archive.tt 		etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_generic_counter.tt 		etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_generic_per_minute.tt		etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_generic_percent.tt 		etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_generic_volume.tt			etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_link.tt				etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_mem.tt				etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_port.tt				etc/influxdb/grafana-dashboard-helper.tt.d
-ncrt_process.tt 			etc/influxdb/grafana-dashboard-helper.tt.d
+
+get_series_from_influxdb		usr/lib/grafana-dashboard-helper
+update_unused_series			usr/lib/grafana-dashboard-helper
+validate_dashboard			usr/lib/grafana-dashboard-helper
+prepare_dashboard			usr/lib/grafana-dashboard-helper
+upload_dashboard_to_grafana		usr/lib/grafana-dashboard-helper
+generate_index				usr/lib/grafana-dashboard-helper
+
+grafana-dashboard-helper.conf		etc/grafana-dashboard-helper
+40_ncrt_disk.sh				etc/grafana-dashboard-helper/dashboard-plugins
+40_ncrt_nic.sh				etc/grafana-dashboard-helper/dashboard-plugins
+50_ncrt_generic_volume.sh		etc/grafana-dashboard-helper/dashboard-plugins
+60_ncrt_generic.sh			etc/grafana-dashboard-helper/dashboard-plugins
+90_generic.sh				etc/grafana-dashboard-helper/dashboard-plugins

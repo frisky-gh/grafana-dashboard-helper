@@ -1,0 +1,9 @@
+var/log/grafana-dashboard-helper
+var/lib/grafana-dashboard-helper/index
+var/lib/grafana-dashboard-helper/influxdb_output
+var/lib/grafana-dashboard-helper/influxdb_series
+var/lib/grafana-dashboard-helper/unused_series
+var/lib/grafana-dashboard-helper/generated_dashboard
+var/lib/grafana-dashboard-helper/validated_dashboard
+var/lib/grafana-dashboard-helper/merged_dashboard
+var/lib/grafana-dashboard-helper/uploaded_dashboard

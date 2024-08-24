@@ -1,0 +1,219 @@
+#!/usr/bin/perl
+
+use strict;
+use JSON::XS;
+
+our $BASEDIR = $ENV{GDHSTATUSDIR} // "/var/lib/grafana-dashboard-helper";
+
+our $FIELDKEYS_AND_SERIALS_DIR = "$BASEDIR/validated_dashboard";
+our $URL_DIR                   = "$BASEDIR/uploaded_dashboard";
+our $OUTPUT_DIR                = "$BASEDIR/index";
+
+my $codec = JSON::XS->new->utf8->canonical->relaxed( 1 )->pretty;
+
+####
+
+sub write_if_changed ($$) {
+	my ($file, $content) = @_;
+
+	if( open my $h, "<", $file ){
+		my $old_content = join '', <$h>;
+		return undef if $content eq $old_content;
+	}
+
+	open my $h, ">", $file or do {
+		die "$file: cannot open, stopped";
+	};
+	print $h $content;
+	close $h;
+	return 1;
+}
+
+sub get_mtime_of_dir ($) {
+	my ($dir) = @_;
+
+	my $result_mtime;
+	opendir my $h, $dir or return undef;
+	while( my $e = readdir $h ){
+		next if $e =~ m"^\.";
+        	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat
+	       		"$dir/$e";
+		$result_mtime = $mtime if $result_mtime < $mtime;
+	}
+	close $h;
+	return $result_mtime;
+}
+
+sub read_fieldkeys_and_serials ($$$\%\%\%\%\%\%) {
+	my ($dir, $dashboard_name, $panelblock_name,
+	    $series2dashboards, $fieldkey2dashboards, $series2panels, $fieldkey2panels,
+	    $dashboard_info, $panel_info) = @_;
+
+	my @fieldkeys;
+	open my $h, "<", "$dir/$panelblock_name.fieldkeys" or do {
+		die "$dir/$panelblock_name.fieldkeys: cannot open, stopped";
+	};
+	while( <$h> ){
+		chomp;
+		die unless m"^(\S+)\s+(\S+)$";
+		push @fieldkeys, [$1, $2];
+	}
+	close $h;
+
+	my @serials;
+	open my $h, "<", "$dir/$panelblock_name.serials" or do {
+		die "$dir/$panelblock_name.serials: cannot open, stopped";
+	};
+	while( <$h> ){
+		chomp;
+		die unless m"^(\d+)\s+(.*)$";
+		push @serials, [$1, $2];
+	}
+	close $h;
+
+	foreach my $series_fieldkey ( @fieldkeys ){
+		my ($series, $fieldkey) = @$series_fieldkey;
+
+		$$series2dashboards  {$series}            {$dashboard_name} = 1;
+		$$fieldkey2dashboards{"$series $fieldkey"}{$dashboard_name} = 1;
+		$$dashboard_info{$dashboard_name}{dashboard_name} = $dashboard_name;
+		$$dashboard_info{$dashboard_name}{fieldkeys}{"$series $fieldkey"} = 1;
+		$$dashboard_info{$dashboard_name}{panelblocks}{$panelblock_name} = 1;
+
+		foreach my $serial_title ( @serials ){
+			my ($panel_serial, $panel_title) = @$serial_title;
+
+			$$series2panels  {$series}            {"$dashboard_name $panel_serial"} = 1;
+			$$fieldkey2panels{"$series $fieldkey"}{"$dashboard_name $panel_serial"} = 1;
+
+			$$dashboard_info{$dashboard_name}{panels}{"$dashboard_name $panel_serial"} = 1;
+			$$panel_info{"$dashboard_name $panel_serial"}{panel_name}  = "$dashboard_name $panel_serial";
+			$$panel_info{"$dashboard_name $panel_serial"}{panel_title} = $panel_title;
+			$$panel_info{"$dashboard_name $panel_serial"}{panelblock}  = $panelblock_name;
+			$$panel_info{"$dashboard_name $panel_serial"}{fieldkeys}{"$series $fieldkey"} = 1;
+		}
+	}
+}
+
+sub read_url ($$\%\%) {
+	my ($dir, $dashboard_name,
+	    $dashboard_info, $panel_info) = @_;
+
+	open my $h, "<", "$dir/$dashboard_name/url" or do {
+		die "$dir/$dashboard_name/url: cannot open, stopped";
+	};
+	my $uid_slug_url = <$h>;
+	chomp $uid_slug_url;
+	my ($uid, $slug, $url) = split m"\s+", $uid_slug_url;
+	close $h;
+
+	$$dashboard_info{$dashboard_name}{uid}  = $uid;
+	$$dashboard_info{$dashboard_name}{slug} = $slug;
+	$$dashboard_info{$dashboard_name}{url}  = $url;
+	foreach my $panel_name ( keys %{ $$dashboard_info{$dashboard_name}{panels} } ){
+		$$panel_info{$panel_name}{uid}  = $uid;
+		$$panel_info{$panel_name}{slug} = $slug;
+		$$panel_info{$panel_name}{url}  = $url;
+	}
+
+	return 1;
+}
+
+sub write_index ($\%\%\%\%\%\%) {
+	my ($dir,
+	    $series2dashboards, $fieldkey2dashboards, $series2panels, $fieldkey2panels,
+	    $dashboard_info, $panel_info) = @_;
+
+	my $json = eval { $codec->encode($series2dashboards); };
+	if( $@ ){
+		die;
+	}
+	write_if_changed "$dir/search_dashboards_by_series_name.json", $json;
+
+	my $json = eval { $codec->encode($fieldkey2dashboards); };
+	if( $@ ){
+		die;
+	}
+	write_if_changed "$dir/search_dashboards_by_fieldkey_name.json", $json;
+
+	my $json = eval { $codec->encode($series2panels); };
+	if( $@ ){
+		die;
+	}
+	write_if_changed "$dir/search_panels_by_series_name.json", $json;
+
+	my $json = eval { $codec->encode($fieldkey2panels); };
+	if( $@ ){
+		die;
+	}
+	write_if_changed "$dir/search_panels_by_fieldkey_name.json", $json;
+
+	my $json = eval { $codec->encode($dashboard_info); };
+	if( $@ ){
+		die;
+	}
+	write_if_changed "$dir/dashboards.json", $json;
+
+	my $json = eval { $codec->encode($panel_info); };
+	if( $@ ){
+		die;
+	}
+	write_if_changed "$dir/panels.json", $json;
+
+	return 1;
+}
+
+####
+
+my %series2dashboards;
+my %fieldkey2dashboards;
+my %series2panels;
+my %fieldkey2panels;
+
+my %dashboard_info;
+my %panel_info;
+
+opendir my $h, $FIELDKEYS_AND_SERIALS_DIR or do {
+	die "$FIELDKEYS_AND_SERIALS_DIR: cannot open, stopped";
+};
+while( my $e = readdir $h ){
+	next if $e =~ m"^\.";
+	next unless -d "$FIELDKEYS_AND_SERIALS_DIR/$e";
+
+	my $dashboard_name = $e;
+	$dashboard_name =~ s{%([0-9a-fA-F]{2})}{ unpack('H2', $1); }eg;
+
+	opendir my $i, "$FIELDKEYS_AND_SERIALS_DIR/$e" or do {
+		die "$FIELDKEYS_AND_SERIALS_DIR/$e: cannot open, stopped";
+	};
+	while( my $f = readdir $i ){
+		next if $f =~ m"^\.";
+		next unless $f =~ m"^(.*)\.fieldkeys$";
+		my $panelblock = $1;
+
+		read_fieldkeys_and_serials "$FIELDKEYS_AND_SERIALS_DIR/$e", $dashboard_name, $panelblock,
+			%series2dashboards, %fieldkey2dashboards, %series2panels, %fieldkey2panels,
+			%dashboard_info, %panel_info;
+	}
+	close $i;
+}
+close $h;
+
+opendir my $h, $URL_DIR or do {
+	die "$URL_DIR: cannot open, stopped";
+};
+while( my $dashboard_name = readdir $h ){
+	next if $dashboard_name =~ m"^\.";
+	next unless -d "$URL_DIR/$dashboard_name";
+
+	read_url $URL_DIR, $dashboard_name,
+		%dashboard_info, %panel_info;
+}
+close $h;
+
+write_index $OUTPUT_DIR,
+	%series2dashboards, %fieldkey2dashboards, %series2panels, %fieldkey2panels,
+	%dashboard_info, %panel_info;
+
+exit 0;
+

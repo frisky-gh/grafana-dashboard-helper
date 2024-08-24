@@ -1,0 +1,167 @@
+#!/usr/bin/perl
+
+use strict;
+use JSON::XS;
+
+our $BASEDIR = $ENV{GDHSTATUSDIR} // "/var/lib/grafana-dashboard-helper";
+
+our $INPUT_DIR  = "$BASEDIR/validated_dashboard";
+our $OUTPUT_DIR = "$BASEDIR/merged_dashboard";
+
+our $DASHBOARD_TEMPLATE = <<"EOF";
+{
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable":    true,
+          "hide":      true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name":      "Annotations & Alerts",
+          "type":      "dashboard"
+        }
+      ]
+    },
+    "editable":   true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links":      [],
+    "panels": [],
+    "schemaVersion": 39,
+    "tags":       [],
+    "templating": { "list": [] },
+    "time":       { "from": "now-6h", "to": "now" },
+    "timepicker": {},
+    "timezone":   "browser",
+    "title":      "",
+    "version":    1,
+    "weekStart":  ""
+}
+EOF
+
+my $codec = JSON::XS->new->utf8->canonical->relaxed( 1 )->pretty;
+
+####
+
+sub write_if_changed ($$) {
+	my ($file, $content) = @_;
+
+	if( open my $h, "<", $file ){
+		my $old_content = join '', <$h>;
+		return undef if $content eq $old_content;
+	}
+
+	open my $h, ">", $file or do {
+		die "$file: cannot open, stopped";
+	};
+	print $h $content;
+	close $h;
+	return 1;
+}
+
+sub get_mtime_of_dir ($) {
+	my ($dir) = @_;
+
+	my $result_mtime;
+	opendir my $h, $dir or return undef;
+	while( my $e = readdir $h ){
+		next if $e =~ m"^\.";
+        	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat
+	       		"$dir/$e";
+		$result_mtime = $mtime if $result_mtime < $mtime;
+	}
+	close $h;
+	return $result_mtime;
+}
+
+sub merge_panelblocks ($) {
+	my ($dir) = @_;
+
+	my @objs;
+	opendir my $h, $dir or do {
+		die "$dir: cannot open, stopped";
+	};
+	while( my $e = readdir $h ){
+		next if $e =~ m"^\.";
+		next unless $e =~ m"\.json$";
+
+		my $json;
+		open my $i, "<", "$dir/$e" or do {
+			die "$dir/$e: cannot open, stopped";
+		};
+		while( <$i> ){
+			next if m"^\s*(#|$)";
+			$json .= $_;
+		}
+		close $i;
+		my $obj = eval { $codec->decode($json); };
+		if( $@ ){
+			die "$dir/$e: illegal format, stopped";
+		}
+		unless( ref($obj) eq 'ARRAY' ){
+			die "$dir/$e: not array, stopped";
+		}
+		push @objs, @$obj;
+	}
+	return @objs;
+}
+
+sub write_dashboard ($$@) {
+	my ($dir, $dashboard_name, @panels) = @_;
+
+	my $obj = eval { $codec->decode($DASHBOARD_TEMPLATE); };
+	if( $@ ){
+		die "DASHBOARD_TEMPLATE: illegal format, stopped";
+	}
+	$$obj{title}  = $dashboard_name;
+	$$obj{panels} = \@panels;
+
+	my $json = eval { $codec->encode($obj); };
+	if( $@ ){
+		die "$dir/dashboard.json: illegal format, stopped";
+	}
+
+	if( -f "$dir/dashboard.json" ){
+		open my $h, "<", "$dir/dashboard.json" or do {
+			die "$dir/dashboard.json: cannot open, stopped";
+		};
+		my $old_json = join '', <$h>;
+		close $h;
+		#print "$dir/dashboard.json: no need to update\n" if $old_json eq $json;
+		return undef if $old_json eq $json;
+		die;
+	}
+
+	write_if_changed "$dir/dashboard.json", $json;
+	return 1;
+}
+
+####
+
+opendir my $h, $INPUT_DIR or do {
+	die "$INPUT_DIR: cannot open, stopped";
+};
+while( my $e = readdir $h ){
+	next if $e =~ m"^\.";
+	next unless -d "$INPUT_DIR/$e";
+
+	my $mtime_input  = get_mtime_of_dir "$INPUT_DIR/$e";
+	my $mtime_output = get_mtime_of_dir "$OUTPUT_DIR/$e";
+	next if defined $mtime_input and defined $mtime_output and $mtime_input < $mtime_output;
+
+	unless( -d "$OUTPUT_DIR/$e" ){
+		mkdir "$OUTPUT_DIR/$e" or die "$OUTPUT_DIR/$e: cannot create, stopped";
+	}
+	my @panels    = merge_panelblocks "$INPUT_DIR/$e";
+	my $dashboard_name = $e;
+	$dashboard_name =~ s{%([0-9a-fA-F]{2})}{ unpack('H2', $1); }eg;
+	write_dashboard "$OUTPUT_DIR/$e", $dashboard_name, @panels;
+}
+close $h;
+
+exit 0;
+

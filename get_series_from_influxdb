@@ -1,0 +1,63 @@
+#!/bin/bash
+
+export http_proxy= HTTP_PROXY=
+
+STATUSDIR=/var/lib/grafana-dashboard-helper
+
+for i in \
+       	"INFLUXDBORG=$INFLUXDBORG" "INFLUXDBBUCKET=$INFLUXDBBUCKET" \
+	"INFLUXDBURL=$INFLUXDBURL" "INFLUXDBTOKEN=$INFLUXDBTOKEN"
+do
+	k="${i%%=*}"
+	v="${i#*=}"
+	test "$v" = "" || continue
+	echo "environment: $k: not defined."
+	exit 2
+done
+
+test "${INFLUXDBURL##*/}" == "" || INFLUXDBURL="$INFLUXDBURL/"
+
+curl -s --request POST "${INFLUXDBURL}api/v2/query?org=$INFLUXDBORG" \
+	--header 'Content-Type: application/vnd.flux' \
+	--header 'Accept: application/csv' \
+	--header "Authorization: Token $INFLUXDBTOKEN" \
+	--data "
+from( bucket: \"$INFLUXDBBUCKET\" )
+ |> range( start: -12h )
+ |> drop( fn: (column) => column =~ /^_/ )
+ |> keys()
+ |> drop( fn: (column) => column !~ /^_/ )
+ |> filter( fn: (r) => r._value !~ /^_/ )
+ |> distinct()
+" |
+tail -n +2 | sed -e 's|^,_result,[0-9]*,||' -e 's|\r||' \
+	> $STATUSDIR/influxdb_output/tags
+
+COND=
+while read i ; do
+	test "$i" == "" && continue
+	COND="$COND + (if r.$i != \"\" then \",$i=\" + r.$i else \"\" )"
+done < $STATUSDIR/influxdb_output/tags
+
+curl -s --request POST "${INFLUXDBURL}api/v2/query?org=$INFLUXDBORG" \
+	--header 'Content-Type: application/vnd.flux' \
+	--header 'Accept: application/csv' \
+	--header "Authorization: Token $INFLUXDBTOKEN" \
+	--data "
+from( bucket: \"$INFLUXDBBUCKET\" )
+ |> range( start: -12h )
+ |> drop( columns: [\"_start\", \"_stop\", \"_time\", \"_value\"] )
+ |> map( fn: (r) => ({
+	\"m_f\": r._measurement $COND + \" \" + r._field
+    }) )
+ |> distinct( column: \"m_f\" )
+" |
+tail -n +2 | sed -e 's|^,_result,[0-9]*,||' -e 's|\r||' -e 's|^"||' -e 's|"$||' \
+	> $STATUSDIR/influxdb_output/series
+
+while read series field ; do
+	test "$field" == "" && continue
+	echo "$field" >> "$STATUSDIR/influxdb_series/$series"
+done < $STATUSDIR/influxdb_output/series
+
+

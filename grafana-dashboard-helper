@@ -18,25 +18,31 @@ use Template::Context;
 use strict;
 
 our $NAME           = 'grafana-dashboard-helper';
-our $HELPER_CONF    = "/etc/influxdb/$NAME.conf";
-our $MAPRULE        = "/etc/influxdb/$NAME.map";
-our $PERMISSIONRULE = "/etc/influxdb/$NAME.permission";
-our $TEMPLATEDIR    = "/etc/influxdb/$NAME.tt.d";
-our $LOGFILE        = "/var/log/influxdb/$NAME.log";
-
-our $FIELDKEYS_FILE          = "/var/lib/influxdb/$NAME.fieldkeys";
-our $NAMEMAP_FILE            = "/var/lib/influxdb/$NAME.namemap";
-our $DASHBOARDSRC_FILE       = "/var/lib/influxdb/$NAME.dashboards";
-our $DASHBOARDLOCATIONS_FILE = "/var/lib/influxdb/$NAME.urls";
-our $INDEXES_FILE            = "/var/lib/influxdb/$NAME.indexes";
-our $PERMISSIONS_FILE        = "/var/lib/influxdb/$NAME.permissions";
+our $GDHCONFFILE    = "/etc/grafana-dashboard-helper/$NAME.conf";
+our $LOGFILE        = "/var/log/grafana-dashboard-helper/$NAME.log";
+our $EXECDIR        = "/usr/lib/grafana-dashboard-helper";
+our $STATUSDIR      = "/var/lib/grafana-dashboard-helper";
+our $DASHBOARDPLUGINDIR = "/etc/grafana-dashboard-helper/dashboard-plugins";
 
 ####
-our $JSONCODEC = JSON::XS->new->utf8->canonical;
-our $JSONCODEC_RELAXED = JSON::XS->new->utf8->canonical->relaxed( 1 )->pretty;
+#our $JSONCODEC = JSON::XS->new->utf8->canonical;
+our $JSONCODEC = JSON::XS->new->utf8->canonical->relaxed( 1 )->pretty;
 
 our $LOGFH = *STDERR;
 our $DEBUG = 0;
+
+sub setlogfile ($) {
+	my ($logfile) = @_;
+	if( $logfile =~ m"^\*" ){
+		$LOGFH = $logfile;
+		return 1;
+	}
+	open $LOGFH, '>>', $logfile or do {
+		die "$logfile: cannot open, stopped";
+	};
+	$LOGFH->autoflush;
+	return 1;
+}
 
 sub debuglog ($;@) {
 	return unless $DEBUG;
@@ -87,6 +93,24 @@ sub ltsv2var ( $ ){
 	return %var;
 }
 
+sub system_or_die ($) {
+	my ($cmd) = @_;
+	my ( $cmdname ) = split m"\s+", $cmd;
+	my $r = system $cmd;
+	if    ($? == -1){
+		die "$cmdname: failed to execute: $!, stopped";
+	}elsif($? & 127){
+		my $signal_num = ($? & 127);
+		my $with_or_without = ($? & 128) ? 'with' : 'without';
+		die "$cmdname: child died with signal $signal_num, $with_or_without coredump, stoped";
+	}
+	my $rc = $? >> 8;
+	if( $rc != 0 ){
+		die "$cmdname: child exit with rc=$rc, stopped";
+	}
+	return 1;
+}
+
 ####
 
 sub get_named_placeholders ($) {
@@ -113,46 +137,50 @@ sub expand_named_placeholders ($%) {
 
 ####
 
-sub read_helper_conf (;%) {
+sub read_gdh_conf (;%) {
 	my (%option) = @_;
 
-	my $filename = $HELPER_CONF;
+	my $filename = $GDHCONFFILE;
 	my %conf = (
-		'LISTENADDR' => 'localhost',
-		'LISTENPORT' => 46849,
-		'HELPERURL' => 'http://localhost:46849/',
+		'DEBUG'              => undef,
+		'LOGFILE'            => undef,
+		'EXECDIR'            => undef,
+		'STATUSDIR'          => undef,
+		'DASHBOARDPLUGINDIR' => undef,
 
+		'GDHLISTENADDR' => 'localhost',
+		'GDHLISTENPORT' => 46849,
+		'GDHURL'        => 'http://localhost:46849/',
+
+		'GRAFANAURL'         => 'http://localhost:3000/',
+		'GRAFANATOKEN'       => 'XXXXSECRETXXXX',
 		'GRAFANADATASOURCE'  => 'influxdb',
-		'GRAFANAURL'         => 'http://localhost/',
-		'GRAFANAAPIKEY'      => 'AAAAAA',
-		'GRAFANAADMINUSER'   => '',
-		'GRAFANAADMINPASSWD' => '',
-		'GRAFANAORGID'       => 'undef',
+		'GRAFANABUCKET'      => 'naemon_bucket',
+		'GRAFANAORGID'       => 2,
 
-		'INFLUXURL'	     => 'http://localhost:18520',
-		'INFLUXUSER'	     => 'naemon',
-		'INFLUXPASSWORD'     => 'naemonadmin',
-		'INFLUXDATABASE'     => 'NCRTDB',
+		'INFLUXDBURL'	     => 'http://localhost:8086/',
+		'INFLUXDBORG'	     => 'naemon_org',
+		'INFLUXDBBUCKET'     => 'naemon_bucket',
+		'INFLUXDBTOKEN'      => 'XXXXSECRETXXXX',
 
-		'RETENTION_POLICY_FILTER' => 'autogen',
-		'MEASUREMENT_FILTER'      => '.*',
-		'FIELD_KEY_FILTER'        => '.*',
-
-		'DEBUG' => 0,
 	);
 
 	open my $h, '<', $filename or do {
-		die "cannot open $filename: $OS_ERROR, stopped";
+		die "$filename: cannot open, because of $OS_ERROR, stopped";
 	};
 	while (<$h>) {
 		next if m"^\s*(#|$)";
 		unless( m"^(\w+)=(.*)$" ){
 			die "$filename:$.: illegal format, stopped";
 		}
-		$conf{$1} = $2;
+		my $k = $1;
+		my $v = $2;
+		if   ( exists $conf{$k} ) { $conf{$k} = $v; }
+		elsif( $k =~ m"^PLUGIN_" ){ $conf{$k} = $v; }
+		else{ errorlog "$filename:$.: unknown parameter."; }
 	}
 	close $h or do {
-		die "close failed for $filename: $OS_ERROR, stopped";
+		die "$filename: cannot close, because of $OS_ERROR, stopped";
 	};
 
 	# overwrite by commandline options
@@ -162,106 +190,20 @@ sub read_helper_conf (;%) {
 	}
 
 	# set global variables
-	$DEBUG   = $conf{DEBUG}   if defined $conf{DEBUG};;
-	$LOGFILE = $conf{LOGFILE} if defined $conf{LOGFILE};
+	$DEBUG     = $conf{DEBUG}     if defined $conf{DEBUG};
+	$LOGFILE   = $conf{LOGFILE}   if defined $conf{LOGFILE};
+	$EXECDIR   = $conf{EXECDIR}   if defined $conf{EXECDIR};
+	$STATUSDIR = $conf{STATUSDIR} if defined $conf{STATUSDIR};
+	$DASHBOARDPLUGINDIR = $conf{DASHBOARDPLUGINDIR} if defined $conf{DASHBOARDPLUGINDIR};
 
-	# build non-string settings
-	$conf{RETENTION_POLICY_FILTER} = qr"^${conf{RETENTION_POLICY_FILTER}}$";
-	$conf{MEASUREMENT_FILTER}      = qr"^${conf{MEASUREMENT_FILTER}}$";
-	$conf{FIELD_KEY_FILTER}        = qr"^${conf{FIELD_KEY_FILTER}}$";
+	setlogfile $LOGFILE if defined $LOGFILE;
 
-	unless( $conf{stderr} ){
-		open $LOGFH, '>>', $LOGFILE or do {
-			die "$LOGFILE: not found, stopped";
-		};
-		$LOGFH->autoflush;
+	# add "/" to the tail of each urls
+	foreach my $i ( 'GDHURL', 'GRAFANAURL', 'INFLUXDBURL' ){
+		$conf{$i} .= "/" unless $conf{$i} =~ m"/$";
 	}
 
 	return \%conf;
-}
-
-sub read_maprule () {
-	my $filename = $MAPRULE;
-	my @rules;
-
-	my $curr_rule;
-	open my $h, '<', $filename or do {
-		die "cannot open $filename: $OS_ERROR, stopped";
-	};
-	while (<$h>) {
-		chomp;
-		next if m"^\s*(#|$)";
-
-		if    ( m"^\s*mapping_rule\s*$" ){
-			$curr_rule = {
-				retention_policy_matches => undef,
-				measurement_matches      => undef,
-				field_key_matches        => undef,
-				map_to_dashboard         => undef,
-				map_to_block             => undef,
-				map_to_template          => undef,
-				map_to_void              => 0,
-				captures_on_dashboard => [],
-				captures_on_block     => [],
-				captures_on_template  => [],
-			};
-			push @rules, $curr_rule;
-
-		}elsif( m"^\s*retention_policy_matches\s+(\S(.*\S)?)\s*$" ){
-			$$curr_rule{retention_policy_matches} = qr"^$1$";
-
-		}elsif( m"^\s*measurement_matches\s+(\S(.*\S)?)\s*$" ){
-			$$curr_rule{measurement_matches} = qr"^$1$";
-
-		}elsif( m"^\s*field_key_matches\s+(\S(.*\S)?)\s*$" ){
-			$$curr_rule{field_key_matches} = qr"^$1$";
-
-		}elsif( m"^\s*map_to_dashboard\s+(\S(.*\S)?)\s*$" ){
-			$$curr_rule{map_to_dashboard} = $1;
-			$$curr_rule{captures_on_dashboard} = [get_named_placeholders($1)];
-
-		}elsif( m"^\s*map_to_block\s+(\S(.*\S)?)\s*$" ){
-			$$curr_rule{map_to_block} = $1;
-			$$curr_rule{captures_on_block}     = [get_named_placeholders($1)];
-
-		}elsif( m"^\s*map_to_template\s+(\w+)\s*$" ){
-			$$curr_rule{map_to_template} = $1;
-			$$curr_rule{captures_on_template}  = [get_named_placeholders($1)];
-
-		}elsif( m"^\s*map_to_void\s*$" ){
-			$$curr_rule{map_to_void} = 1;
-
-		}else{
-			die "$filename:$.: illegal format \"$_\", stopped";
-		}
-	}
-	close $h or do {
-		die "close failed for $filename: $OS_ERROR, stopped";
-	};
-	return \@rules;
-}
-
-sub read_permissionrule () {
-	my $filename = $PERMISSIONRULE;
-	my @rules;
-
-	open my $h, '<', $filename or do {
-		die "cannot open $filename: $OS_ERROR, stopped";
-	};
-	while (<$h>) {
-		next if m"^\s*(#|$)";
-		unless( m"^(\S+)\s+(-|\+)?(\S.*)$" ){
-			die "$filename:$.: illegal format, stopped";
-		}
-		my $dashboard_regexp = qr"^$1$";
-		my $operator         = $2;
-		my @users            = split m"\s+", $3;
-		push @rules, [ $dashboard_regexp, $operator, \@users ];
-	}
-	close $h or do {
-		die "close failed for $filename: $OS_ERROR, stopped";
-	};
-	return \@rules;
 }
 
 sub write_as_json ($$) {
@@ -269,7 +211,7 @@ sub write_as_json ($$) {
 	open my $h, '>', $filename or do {
 		die "cannot open $filename: $OS_ERROR, stopped";
 	};
-	print $h $JSONCODEC_RELAXED->encode($obj), "\n";
+	print $h $JSONCODEC->encode($obj), "\n";
 	close $h or do {
 		die "close failed for $filename: $OS_ERROR, stopped";
 	};
@@ -290,1916 +232,312 @@ sub read_as_json ($) {
 	return $obj;
 }
 
-sub cmp_grafanaentries (\@\@) {
-	my ($left, $right) = @_;
-	my %c;
-	my %left;
-	foreach my $entry ( @$left ){
-		my $json = $JSONCODEC->encode($entry);
-		$c{$$entry{name}} |= 1;
-		$left{$$entry{name}} = $json;
-	}
-	my %right;
-	foreach my $entry ( @$right ){
-		my $json = $JSONCODEC->encode($entry);
-		$c{$$entry{name}} |= 1;
-		$right{$$entry{name}} = $json;
-	}
+sub get_mtime ($) {
+	my ($file) = @_;
 
-	my @r;
-	while( my ($i, $r) = each %c ){
-		next if $r == 3 && $left{$i} eq $right{$i};
-		push @r, $i;
-	}
-	return @r;
-}
-
-sub search_panels_by_fieldkey ($$$$) {
-	my ($cache, $retentionpolicy, $measurement, $fieldkey) = @_;
-	return undef;
-}
-
-sub search_dashboard_by_name ($$) {
-	my ($cache, $dashboard) = @_;
-
-	my $entries = $$cache{entries};
-	foreach my $entry ( @$entries ){
-		next unless $$entry{name} eq $dashboard;
-		return $entry;
-	}
-	return undef;
-}
-
-########
-########
-########
-
-package GDH::Template;
-
-sub new () {
-	my $this = bless {
-		template => undef,
-	};
-	return $this;
-}
-
-sub tmplfunc_match {
-	my ($text, $re) = @_;
-	if( $text =~ m"$re" ){ return 1; }
-	else                 { return undef; }
-}
-
-sub tmplfunc_sub {
-	my ($text, $re, $replace) = @_;
-	$text =~ s/$re/$replace/;
-	return $text;
-}
-
-sub tmplfunc_gsub {
-	my ($text, $re, $replace) = @_;
-	$text =~ s/$re/$replace/g;
-	return $text;
-}
-
-sub tmplfunc_split {
-	my ($text, $re) = @_;
-	return split m"$re", $text;
-}
-
-our $SERIAL = 1;
-sub tmplfunc_serial {
-	return $SERIAL++;
-}
-
-our $TEMPLATECTX = Template::Context->new( {} );
-our %TEMPLATE_CACHE;
-sub read ($$) {
-	my ($this, $templatename) = @_;
-
-	if( exists $TEMPLATE_CACHE{$templatename} ){
-		$$this{template} = $TEMPLATE_CACHE{$templatename};
-		return 1;
-	}
-
-	main::debuglog "GDH::Template::read: read template \"%s\".", $templatename;
-	my $filename = "$main::TEMPLATEDIR/$templatename.tt";
-	open my $h, '<', "$filename" or do {
-		main::errorlog "cannot open %s: %s", $filename, $main::OS_ERROR;
-		$TEMPLATE_CACHE{$templatename} = undef;
-		return undef;
-	};
-	my $text = join '', <$h>;
-	close $h or do {
-		main::errorlog "close failed for %s: %s", $filename, $main::OS_ERROR;
-		return undef;
-	};
-	my $d = $TEMPLATECTX->template( \$text );
-	$$this{template} = $d;
-	$TEMPLATE_CACHE{$templatename} = $d;
-	return 1;
-}
-
-sub expand ($$) {
-	my ($this, $params) = @_;
-
-	my $template = $$this{template};
-
-        my $vars = {
-		match	=> \&tmplfunc_match,
-		sub	=> \&tmplfunc_sub,
-		gsub	=> \&tmplfunc_gsub,
-		split	=> \&tmplfunc_split,
-		serial	=> \&tmplfunc_serial,
-		%$params
-        };
-
-	my $output;
-	my $output = $TEMPLATECTX->process( $template, $vars ) or do {
-		main::debuglog '    cannot process template: ' . $TEMPLATECTX->error();
-		return $template;
-	};
-	return $output;
-}
-
-########
-########
-########
-
-package GDH::Influx;
-
-sub new () {
-	my $this = bless {
-		url      => undef,
-		database => undef,
-		user     => undef,
-		password => undef,
-		ua       => LWP::UserAgent->new,
-
-		retentionpolicy_regexp => qr"^.*$",
-		measurement_regexp     => qr"^.*$",
-		fieldkey_regexp        => qr"^.*$",
-
-		verbose => undef,
-	};
-	return $this;
-}
-
-sub setConfig ($) {
-	my ($this, $conf) = @_;
-	$$this{url}      = $$conf{INFLUXURL};
-	$$this{database} = $$conf{INFLUXDATABASE};
-	$$this{user}     = $$conf{INFLUXUSER};
-	$$this{password} = $$conf{INFLUXPASSWORD};
-
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
-
-	$$this{verbose} = $$conf{verbose};
-	return $this;
-}
-
-sub query ($$) {
-	my ($this, $q) = @_;
-	my $ua = $$this{ua};
-	my $server_endpoint = sprintf '%s/query?db=%s&u=%s&p=%s&q=%s',
-		$$this{url},  $$this{database},
-		$$this{user}, $$this{password}, main::uri_escape $q;
-	my $req = HTTP::Request->new('GET' => $server_endpoint);
-	my $t = time;
-	main::debuglog "influxdb-req %s", $q;
-	my $res = $ua->request($req);
-	main::debuglog "influxdb-res: %d sec", time - $t;
-	return $res;
-}
-
-sub queryRetentionPolicies ($) {
-	my ($this) = @_;
-	my $q = "show retention policies";
-	my $res = $this->query($q);
-	unless($res->is_success) {
-		printf "query: %s\n", $q;
-		printf "code: %s\nmessage: %s\n", $res->code, $res->message;
-		return ();
-	}
-	my $obj = $main::JSONCODEC_RELAXED->decode( $res->decoded_content );
-	my $series = $$obj{results}->[0]->{series}->[0]->{values};
-
-	my $retentionpolicy_regexp = $$this{retentionpolicy_regexp};
-	my %retentionpolicies;
-	foreach my $i ( @$series ){
-		next unless $$i[0] =~ $retentionpolicy_regexp;
-		$retentionpolicies{ $$i[0] } = $$i[4];
-	}
-	return %retentionpolicies;
-}
-
-sub queryMeasurements ($) {
-	my ($this) = @_;
-	my $q = "show measurements";
-	my $res = $this->query($q);
-	unless($res->is_success) {
-		printf "query: %s\n", $q;
-		printf "code: %s\nmessage: %s\n", $res->code, $res->message;
-		return ();
-	}
-	my $obj = $main::JSONCODEC_RELAXED->decode( $res->decoded_content );
-	my $series = $$obj{results}->[0]->{series}->[0]->{values};
-
-	my $measurement_regexp = $$this{measurement_regexp};
-	my @measurements;
-	foreach my $i ( @$series ){
-		next unless $$i[0] =~ $measurement_regexp;
-		push @measurements, $$i[0];
-	}
-	return @measurements;
-}
-
-sub queryAllFieldKeys ($) {
-	my ($this, $retention_policy, $measurement) = @_;
-	my $q = "show field keys";
-	my $res = $this->query($q);
-	my $fieldkey_regexp = $$this{fieldkey_regexp};
-
-	unless($res->is_success) {
-		printf "query: %s\n", $q;
-		printf "code: %s\nmessage: %s\n", $res->code, $res->message;
-		return ();
-	}
-	my $obj = $main::JSONCODEC_RELAXED->decode( $res->decoded_content );
-	my $series = $$obj{results}->[0]->{series};
-
-	my %r;
-	foreach my $i ( @$series ){
-
-		my $measurement = $$i{name};
-		my $values = $$i{values};
-		my @fieldkeys;
-		foreach my $j ( @$values ){
-			next unless $$j[0] =~ $fieldkey_regexp;
-			push @fieldkeys, $$j[0];
-		}
-
-		$r{$measurement} = \@fieldkeys;
-	}
-
-	return %r;
-}
-
-sub queryFieldKeys ($$$) {
-	my ($this, $retention_policy, $measurement) = @_;
-	my $q = "show field keys from \"$retention_policy\".\"$measurement\"";
-	my $res = $this->query($q);
-	unless($res->is_success) {
-		printf "query: %s\n", $q;
-		printf "code: %s\nmessage: %s\n", $res->code, $res->message;
-		return ();
-	}
-	my $obj = $main::JSONCODEC_RELAXED->decode( $res->decoded_content );
-	my $series = $$obj{results}->[0]->{series}->[0]->{values};
-
-	my $fieldkey_regexp = $$this{fieldkey_regexp};
-	my @fieldkeys;
-	foreach my $i ( @$series ){
-		next unless $$i[0] =~ $fieldkey_regexp;
-		push @fieldkeys, $$i[0];
-	}
-	return @fieldkeys;
-}
-
-package GDH::Grafana;
-use MIME::Base64;
-
-sub new () {
-	my $this = bless {
-		url      => undef,
-		apikey   => undef,
-		user     => undef,
-		password => undef,
-		debug    => undef,
-		ua       => LWP::UserAgent->new,
-
-		verbose => undef,
-		dry_run => undef,
-	};
-	return $this;
-}
-
-sub setConfig ($) {
-	my ($this, $conf) = @_;
-	$$this{url}      = $$conf{GRAFANAURL};
-	$$this{apikey}   = $$conf{GRAFANAAPIKEY};
-	$$this{user}     = $$conf{GRAFANAADMINUSER};
-	$$this{password} = $$conf{GRAFANAADMINPASSWD};
-	$$this{debug}    = $$conf{GRAFANADEBUG};
-
-	$$this{verbose} = $$conf{verbose};
-	$$this{dry_run} = $$conf{dry_run};
-	return $this;
-}
-
-sub query ($$$;$) {
-	my ($this, $api, $authtype, $reqdata) = @_;
-	my $debug = $$this{debug};
-	my $ua = $$this{ua};
-	my $url = $$this{url} . $api;
-
-	my $authtoken;
-	if( $authtype eq 'apikey' ){
-		$authtoken = "Bearer " . $$this{apikey};
-	}else{
-		$authtoken = "Basic " . encode_base64(
-			$$this{user} . ":" .
-			$$this{password}
-		);
-	}
-	my $header = [
-		'Authorization' => $authtoken,
-		'Content-Type'  => 'application/json',
-	];
-        my $req;
-	if( defined $reqdata ){
-		$req = HTTP::Request->new('POST', $url, $header, $reqdata);
-	}else{
-		$req = HTTP::Request->new('GET',  $url, $header);
-	}
-	main::debuglog "grafana-req: %s", $url;
-	my $res = $ua->request($req);
-	main::debuglog "grafana-res: code=%s", $res->code;
-
-	if( $res->code != 200 ){
-		main::debuglog "grafana-res: NG: res=%s", $res->content;
-		main::debuglog "grafana-res: NG: authtoken=%s", $authtoken;
-		return undef;
-	}
-	if( $debug ){
-		main::debuglog "grafana-res: OK: res=%s", $res->content;
-	}
-	my $r = $main::JSONCODEC_RELAXED->decode($res->content);
-	return $r;
-}
-
-sub readUsers ($) {
-	my ($this) = @_;
-	my $r = $this->query("/api/users", "user");
-	return () unless $r;
-
-	my %r;
-	foreach my $i (@$r){
-		my $id    = $$i{id};
-		my $name  = $$i{name};
-		my $login = $$i{login};
-		my $is_admin    = $$i{isAdmin};
-		my $is_disabled = $$i{isDisabled};
-		next if $is_disabled eq 'true';
-		$r{$login} = {
-			id => $id,
-			name => $name,
-			is_admin => $is_admin eq 'true' ? 1 : undef,
-		};
-	}
-	return %r;
-}
-
-sub registerDashboard ($$$$) {
-	my ($this, $dashboardname, $objs, $tags) = @_;
-
-	my $dashboard_json_tmpl = GDH::Template->new;
-	$dashboard_json_tmpl->read("grafana-dashboard") or die "grafana-dashboard: not found, stopped";
-	my $dashboard_json = $dashboard_json_tmpl->expand( {} );
-	my $dashboard_obj = $main::JSONCODEC_RELAXED->decode($dashboard_json);
-	$$dashboard_obj{title}  = $dashboardname;
-	$$dashboard_obj{panels} = $objs;
-	$$dashboard_obj{tags}   = $tags;
-	my $request_obj = {
-		"overwrite" => \1,
-		'dashboard' => $dashboard_obj,
-	};
-	undef $$request_obj{dashboard}->{id};
-	my $request_json = $main::JSONCODEC_RELAXED->encode($request_obj);
-
-	return {
-		status => 'dry-run',
-                id     => 'dry-run',
-                uid    => 'dry-run',
-		slug   => 'dry-run',
-		url    => 'dry-run',
-	} if $$this{dry_run};
-
-	my $r = $this->query("/api/dashboards/db", "apikey", $request_json);
-	return undef unless $r;
-
-	if( $$r{status} ne "success" ){
-		return undef;
-	}
-	# this function returns grafana response directly if successed.
-	return $r;
-}
-
-sub registerPermission ($$$) {
-	my ($this, $dashboard_uid, $user_ids) = @_;
-
-	my @p;
-	foreach my $user_id ( @$user_ids ){
-		push @p, {
-			userId     => int($user_id),
-			permission => 4,
-		};
-	}
-
-	my $request_obj = { items => \@p };
-	my $request_json = $main::JSONCODEC->encode($request_obj);
-
-	my $r = $this->query("/api/dashboards/uid/$dashboard_uid/permissions", "apikey", $request_json);
-	return undef unless $r;
-
-	if( $r->{status} ne "success" ){
-		return undef;
-	}
-	return $r;
-}
-
-########
-########
-########
-
-package GDH::FieldKeys;
-
-sub new () {
-	my $this = bless {
-		cache => {},
-		influx => undef,
-
-		retentionpolicy_regexp => qr"^.*$",
-		measurement_regexp     => qr"^.*$",
-		fieldkey_regexp        => qr"^.*$",
-
-		verbose => undef,
-	};
-	return $this;
-}
-
-sub setConfig ($) {
-	my ($this, $conf) = @_;
-
-	$$this{influx}                 = GDH::Influx->new->setConfig($conf);
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
-
-	$$this{verbose} = $$conf{verbose};
-	return $this;
-}
-
-sub read ($$) {
-	my ($this, $file) = @_;
-
-	my $obj = main::read_as_json($file) // {};
-	$$this{cache} = $obj;
-}
-
-sub write ($$) {
-	my ($this, $file) = @_;
-
-	my $cache = $$this{cache};
-	main::write_as_json($file, $cache);
-	return;
-}
-
-sub update ($) {
-	my ($this) = @_;
-
-	my $cache   = $$this{cache};
-	my $verbose = $$this{verbose};
-
-	my $influx = $$this{influx};
-	my %retentionpolicies  = $influx->queryRetentionPolicies;
-	my @measurements       = $influx->queryMeasurements;
-
-	my $retentionpolicy_regexp = $$this{retentionpolicy_regexp};
-	my $measurement_regexp     = $$this{measurement_regexp};
-	my $fieldkey_regexp        = $$this{fieldkey_regexp};
-
-	# structure:
-	#	retention_policy
-	#		-> measurement
-	#			-> field_key
-	while( my ($retentionpolicy, $default) = each %retentionpolicies ){
-		next unless $retentionpolicy =~ $retentionpolicy_regexp;
-
-		if( $default ){
-			main::debuglog "GDH::FieldKeys::update: trying to fetch field keys of %s.", $retentionpolicy;
-			my %measurement_fieldkeys = $influx->queryAllFieldKeys;
-			while( my ($measurement, $fieldkeys) = each %measurement_fieldkeys ){
-				next unless $measurement =~ $measurement_regexp;
-
-				foreach my $fieldkey ( @$fieldkeys ){
-					$$cache{$retentionpolicy}->{$measurement}->{$fieldkey} = 1;
-				}
-			}
-		}else{
-			foreach my $measurement ( @measurements ){
-				next unless $measurement =~ $measurement_regexp;
-
-				main::debuglog "GDH::FieldKeys::update: trying to fetch field keys of %s.%s.", $retentionpolicy, $measurement;
-				my @fieldkeys = $influx->queryFieldKeys($retentionpolicy, $measurement);
-				next unless @fieldkeys;
-				main::debuglog "GDH::FieldKeys::update: fieldkeys=(%s).", "@fieldkeys";
-
-				foreach my $fieldkey ( @fieldkeys ){
-					$$cache{$retentionpolicy}->{$measurement}->{$fieldkey} = 1;
-				}
-			}
-		}
-	}
-}
-
-sub forEach ($$) {
-	my ($this, $sub) = @_;
-
-	my $cache = $$this{cache};
-
-	while( my ($retentionpolicy, $measurement2fieldkeys) = each %$cache ){
-		while( my ($measurement, $fieldkeys) = each %$measurement2fieldkeys ){
-			foreach my $fieldkey ( keys %$fieldkeys ){
-				&$sub( $retentionpolicy, $measurement, $fieldkey );
-			}
-		}
-	}
-}
-
-
-########
-########
-########
-
-package GDH::NameMap;
-
-sub new () {
-	my $this = bless {
-		cache => {},
-		influx => undef,
-
-		retentionpolicy_regexp => qr"^.*$",
-		measurement_regexp     => qr"^.*$",
-		fieldkey_regexp        => qr"^.*$",
-		dashboard_regexp       => qr"^.*$",
-
-		target_fieldnames => undef,
-
-		verbose => undef,
-	};
-	return $this;
-}
-
-sub setConfig ($) {
-	my ($this, $conf) = @_;
-
-	$$this{influx}                 = GDH::Influx->new->setConfig($conf);
-
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
-
-	$$this{target_fieldnames} = $$conf{target_fieldnames};
-
-	$$this{verbose} = $$conf{verbose};
-	return $this;
-}
-
-sub read ($$) {
-	my ($this, $file) = @_;
-
-	my $obj = main::read_as_json($file) // {};
-	$$this{cache} = $obj;
-}
-
-sub write ($$) {
-	my ($this, $file) = @_;
-
-	my $cache = $$this{cache};
-	main::write_as_json($file, $cache);
-	return;
-}
-
-sub update ($$$) {
-	my ($this, $rules, $fieldkeys) = @_;
-
-	my $cache   = $$this{cache};
-	my $verbose = $$this{verbose};
-	my $target_fieldnames = $$this{target_fieldnames};
-
-	my $retentionpolicy_regexp = $$this{retentionpolicy_regexp};
-	my $measurement_regexp     = $$this{measurement_regexp};
-	my $fieldkey_regexp        = $$this{fieldkey_regexp};
-	my $dashboard_regexp       = $$this{dashboard_regexp};
-
-	## cleanup
-	# structure:
-	#	dashboardname
-	#		-> blockname
-	#			-> $retentionpolicy, measurement, fieldkey
-	while( my ($dashboardname, $blocks) = each %$cache ){
-		my $must_be_delete = undef;
-		while( my ($blockname, $info) = each %$blocks ){
-			my $fieldnames = $$info{fieldnames};
-			while( my ($fieldname, undef) = each %$fieldnames ){
-				my ($retentionpolicy, $measurement, $fieldkey) = split m"\x1c", $fieldname;
-				next unless $retentionpolicy =~ $retentionpolicy_regexp;
-				next unless $measurement     =~ $measurement_regexp;
-				next unless $fieldkey        =~ $fieldkey_regexp;
-
-				if( defined $target_fieldnames ){
-					next unless $$target_fieldnames{$fieldname};
-				}
-				$must_be_delete = 1;
-			}
-		}
-		delete $$cache{$dashboardname} if $must_be_delete;
-	}
-
-	$fieldkeys->forEach( sub {
-		my ($retentionpolicy, $measurement, $fieldkey) = @_;
-
-		return unless $retentionpolicy =~ $retentionpolicy_regexp;
-		return unless $measurement     =~ $measurement_regexp;
-		return unless $fieldkey        =~ $fieldkey_regexp;
-
-		if( defined $target_fieldnames ){
-			return unless $$target_fieldnames{$retentionpolicy,$measurement,$fieldkey};
-		}
-		print "GDH::NameMap::update: generating map of \"$retentionpolicy\".\"$measurement\"...\n" if $verbose;
-
-		my $map_to_dashboard;
-		my $map_to_block;
-		my $map_to_template;
-		my $map_to_void;
-		my $captures_on_dashboard = [];
-		my $captures_on_block     = [];
-		my $captures_on_template  = [];
-		my %captured;
-
-		foreach my $rule ( @$rules ){
-			my $retentionpolicy_regexp = $$rule{retention_policy_matches};
-			my $measurement_regexp     = $$rule{measurement_matches};
-			my $fieldkey_regexp        = $$rule{field_key_matches};
-			my $dashboard              = $$rule{map_to_dashboard};
-			my $block                  = $$rule{map_to_block};
-			my $template               = $$rule{map_to_template};
-			my $void                   = $$rule{map_to_void};
-			my %curr_captured;
-
-			if( defined $retentionpolicy_regexp ){
-				next unless $retentionpolicy =~ $retentionpolicy_regexp;
-				while( my ($key, $values) = each %- ){
-					foreach my $value ( @$values ){
-						next if $value eq '';
-						$curr_captured{$key} = $value;
-					}
-				}
-			}
-			if( defined $measurement_regexp ){
-				next unless $measurement     =~ $measurement_regexp;
-				while( my ($key, $values) = each %- ){
-					foreach my $value ( @$values ){
-						next if $value eq '';
-						$curr_captured{$key} = $value;
-					}
-				}
-			}
-			if( defined $fieldkey_regexp ){
-				next unless $fieldkey        =~ $fieldkey_regexp;
-				while( my ($key, $values) = each %- ){
-					foreach my $value ( @$values ){
-						next if $value eq '';
-						$curr_captured{$key} = $value;
-					}
-				}
-			}
-
-			while( my ($k, $v) = each %curr_captured ){
-				$captured{$k} = $v;
-			}
-			if( defined $dashboard ){
-				$map_to_dashboard = $dashboard;
-				$captures_on_dashboard = $$rule{captures_on_dashboard};
-			}
-			if( defined $block ){
-				$map_to_block = $block;
-				$captures_on_block     = $$rule{captures_on_block};
-			}
-			if( defined $template ){
-				$map_to_template = $template;
-				$captures_on_template  = $$rule{captures_on_template};
-			}
-			if( defined $void ){
-				$map_to_void = $void;
-			}
-		}
-
-		my %use_captured;
-		foreach my $i (@$captures_on_dashboard, @$captures_on_block, @$captures_on_template){
-			$use_captured{$i} = $captured{$i};
-		}
-		my $dashboardname = main::expand_named_placeholders $map_to_dashboard, %use_captured;
-		my $blockname     = main::expand_named_placeholders $map_to_block,     %use_captured;
-		my $templatename  = main::expand_named_placeholders $map_to_template,  %use_captured;
-
-		if( $map_to_void || $dashboardname eq "" || $blockname eq "" || $templatename eq "" ){
-			return;
-		}
-		return unless $dashboardname =~ $dashboard_regexp;
-
-		my $blockinfo = $$cache{$dashboardname}->{$blockname};
-		unless( defined $blockinfo ){
-			$blockinfo = {
-				template_name => $templatename,
-				captured      => \%use_captured,
-				fieldnames    => {},
-			};
-			$$cache{$dashboardname}->{$blockname} = $blockinfo;
-		}
-		$$blockinfo{fieldnames}->{$retentionpolicy,$measurement,$fieldkey} = 1;
-	} );
-}
-
-sub forEach ($$) {
-	my ($this, $sub) = @_;
-
-	my $cache = $$this{cache};
-
-	while( my ($dashboardname, $blocknames) = each %$cache ){
-		while( my ($blockname, $blockinfo) = each %$blocknames ){
-			my $templatename = $$blockinfo{template_name};
-			my $captured     = $$blockinfo{captured};
-			my $fieldnames   = $$blockinfo{fieldnames};
-
-			&$sub( $dashboardname, $blockname, $templatename, $captured, $fieldnames );
-		}
-	}
-}
-
-
-########
-########
-########
-
-package GDH::DashboardSources;
-use Encode;
-
-sub new () {
-	my $this = bless {
-		cache => {},
-
-		retentionpolicy_regexp => qr"^.*$",
-		measurement_regexp     => qr"^.*$",
-		fieldkey_regexp        => qr"^.*$",
-		dashboard_regexp       => qr"^.*$",
-
-		gradanadatasource => undef,
-
-		target_dashboards => undef,
-
-		verbose => undef,
-	};
-	return $this;
-}
-
-sub setConfig ($) {
-	my ($this, $conf) = @_;
-
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
-
-	$$this{grafanadatasource} = $$conf{GRAFANADATASOURCE};
-
-	$$this{target_dashboards} = $$conf{target_dashboards};
-
-	$$this{verbose} = $$conf{verbose};
-	return $this;
-}
-
-sub read ($$) {
-	my ($this, $file) = @_;
-
-	my $obj = main::read_as_json($file) // {};
-	$$this{cache} = $obj;
-}
-
-sub write ($$) {
-	my ($this, $file) = @_;
-
-	my $cache = $$this{cache};
-	main::write_as_json($file, $cache);
-	return;
-}
-
-sub _pickup_panelobjs (\@) {
-	my ($objlist) = @_;
-
-	my @r;
-	foreach my $obj ( @$objlist ){
-		next unless ref($obj) eq 'HASH';
-
-		if( defined $$obj{type} ){
-			push @r, $obj;
-		}
-
-		if( ref($$obj{panels}) eq 'ARRAY' ){
-			my @t = _pickup_panelobjs( @{$$obj{panels}} );
-			push @r, @t;
-		}
-	}
-	return @r;
-}
-
-sub _pickup_tags_from_panelobjs (\@) {
-	my ($panels) = @_;
-	my %tags;
-	foreach my $panel ( @$panels ){
-		next unless defined $$panel{_dashboard_tags};
-
-		foreach my $tag ( @{$$panel{_dashboard_tags}} ){
-			$tags{$tag} = 1;
-		}
-	}
-	return sort keys %tags;
-}
-
-sub update ($$) {
-	my ($this, $namemap) = @_;
-
-	my $verbose = $$this{verbose};
-	my $cache   = $$this{cache};
-	my $dashboard_regexp = $$this{dashboard_regexp};
-	my $target_dashboards = $$this{target_dashboards};
-
-	$namemap->forEach( sub {
-		my ($dashboard_name, $block_name, $template_name, $captured, $fieldnames) = @_;
- 
-		return unless $dashboard_name =~ $dashboard_regexp;
-		if( defined $target_dashboards ){
-			return unless $$target_dashboards{$dashboard_name};
-		}
-
-		print "GDH::DashboardSources::update: generating source of \"$dashboard_name\"...\n" if $verbose;
-		print "GDH::DashboardSources::update: regexp = $dashboard_regexp\n" if $verbose;
-
-		my $template = GDH::Template->new;
-		$template->read($template_name) or die "$template_name: not found, stopped";
-		my $json = $template->expand( {
-			GRAFANADATASOURCE => $$this{grafanadatasource},
-			DASHBOARD_NAME    => $dashboard_name,
-			BLOCK_NAME        => $block_name,
-			TEMPLATE_NAME     => $template_name,
-			CAPTURED          => $captured,
-			FIELD_NAMES       => $fieldnames,
-		} );
-		die "GDH::DashboardSources: template \"$template_name\" is empty, stopped" if $json eq '';
-
-		my $blockobjs;
-		eval { $blockobjs = $main::JSONCODEC_RELAXED->decode( encode_utf8("[ $json ]") ); };
-		if( $@ ){
-			main::errorlog "$@";
-			main::errorlog "$template_name: cannot validate, stopped";
-			main::debuglog "decoding json: $json";
-			die "$template_name: cannot validate, stopped";
-		}
-		$$cache{$dashboard_name}->{$block_name} = {
-			objs          => $blockobjs,
-			fieldnames    => $fieldnames,
-			template_name => $template_name,
-		};
-	} );
-
-	# serialize ID of all panels, and
-	# set y-location of all panels
-	while( my ($dashboardname, $blocknames) = each %$cache ){
-
-		my $panel_y = 100;
-		my $panel_id = 1001;
-		foreach my $blockname ( sort keys %$blocknames ){
-			my $blockinfo = $$blocknames{$blockname};
-			my $blockobjs = $$blockinfo{objs};
-			my @panelobjs = _pickup_panelobjs( @$blockobjs );
-			my @tags      = _pickup_tags_from_panelobjs( @panelobjs );
-
-			foreach my $panelobj ( @panelobjs ){
-				my $paneltitle = $$panelobj{title};
-
-				$$panelobj{id} = $panel_id;
-				$panel_id++;
-
-				if( defined $$panelobj{gridPos} && $$panelobj{gridPos}->{y} < 100 ){
-					$$panelobj{gridPos}->{y} += $panel_y;
-				}
-			}
-			$panel_y += 100;
-
-			$$blockinfo{tags} = \@tags;
-		}
-	}
-}
-
-sub forEach ($$) {
-	my ($this, $sub) = @_;
-
-	my $cache = $$this{cache};
-
-	while( my ($dashboardname, $blocknames) = each %$cache ){
-		my @objs;
-		my %tags;
-		while( my ($blockname, $blockinfo) = each %$blocknames ){
-			my $objs = $$blockinfo{objs};
-			my $tags = $$blockinfo{tags};
-			push @objs, @$objs;
-			foreach my $tag ( @$tags ){
-				$tags{$tag} = 1;
-			}
-		}
-		my @tags = sort keys %tags;
-		&$sub( $dashboardname, \@objs, \@tags );
-	}
-}
-
-sub forEachPanels ($$) {
-	my ($this, $sub) = @_;
-
-	my $cache = $$this{cache};
-
-	while( my ($dashboardname, $blocknames) = each %$cache ){
-		my @objs;
-		my %tags;
-		while( my ($blockname, $blockinfo) = each %$blocknames ){
-			my $objs       = $$blockinfo{objs};
-			my $fieldnames = $$blockinfo{fieldnames};
-			my @panelobjs = _pickup_panelobjs( @$objs );
-			foreach my $panelobj ( @panelobjs ){
-				my $panelid    = $$panelobj{id};
-				my $paneltitle = $$panelobj{title};
-				my $panelname  = join "\x1c", $dashboardname, $panelid;
-				&$sub( $dashboardname, $panelname, $paneltitle, $fieldnames );
-			}
-		}
-	}
-}
-
-
-########
-########
-########
-
-package GDH::DashboardLocations;
-
-sub new () {
-	my $this = bless {
-		cache => {},
-		grafana => undef,
-
-		retentionpolicy_regexp => qr"^.*$",
-		measurement_regexp     => qr"^.*$",
-		fieldkey_regexp        => qr"^.*$",
-		dashboard_regexp       => qr"^.*$",
-
-		target_dashboards => undef,
-
-		verbose => undef,
-	};
-	return $this;
-}
-
-sub setConfig ($) {
-	my ($this, $conf) = @_;
-
-	$$this{grafana} = GDH::Grafana->new->setConfig($conf);
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
-
-	$$this{target_dashboards} = $$conf{target_dashboards};
-
-	$$this{verbose} = $$conf{verbose};
-	return $this;
-}
-
-sub read ($$) {
-	my ($this, $file) = @_;
-
-	my $obj = main::read_as_json($file) // {};
-	$$this{cache} = $obj;
-}
-
-sub write ($$) {
-	my ($this, $file) = @_;
-
-	my $cache = $$this{cache};
-	main::write_as_json($file, $cache);
-	return;
-}
-
-sub update ($$) {
-	my ($this, $dashboardsrc) = @_;
-
-	my $verbose = $$this{verbose};
-	my $cache   = $$this{cache};
-	my $grafana = $$this{grafana};
-	my $dashboard_regexp = $$this{dashboard_regexp};
-	my $target_dashboards = $$this{target_dashboards};
-
-	$dashboardsrc->forEach( sub {
-		my ($dashboardname, $objs, $tags) = @_;
-
-		return unless $dashboardname =~ $dashboard_regexp;
-		if( defined $target_dashboards ){
-			return unless $$target_dashboards{$dashboardname};
-		}
-
-		main::debuglog "GDH::DashboardLocations::update: registering dashboard \"%s\"...", $dashboardname;
-		my $r = $grafana->registerDashboard( $dashboardname, $objs, $tags );
-		return unless defined $r;
-
-                $$cache{$dashboardname}->{uid}  = $$r{uid},
-                $$cache{$dashboardname}->{slug} = $$r{slug},
-                $$cache{$dashboardname}->{id}   = $$r{id},
-                $$cache{$dashboardname}->{url}  = $$r{url},
-	} );
-}
-
-sub forEach ($$) {
-	my ($this, $sub) = @_;
-
-	my $cache = $$this{cache};
-
-	while( my ($dashboardname, $location) = each %$cache ){
-		my $id   = $$location{id};
-		my $uid  = $$location{uid};
-		my $slug = $$location{slug};
-
-		&$sub( $dashboardname, $id, $uid, $slug );
-	}
-}
-
-########
-########
-########
-
-package GDH::Indexes;
-
-sub new () {
-	my $this = bless {
-		filename  => undef,
-		timestamp => undef,
-		cache => {
-			dashboard_index => {},
-			panel_index     => {},
-			fieldkey_index  => {},
-		},
-
-		grafanaurl => undef,
-
-		retentionpolicy_regexp => qr"^.*$",
-		measurement_regexp     => qr"^.*$",
-		fieldkey_regexp        => qr"^.*$",
-		dashboard_regexp       => qr"^.*$",
-
-		verbose => undef,
-	};
-	return $this;
-}
-
-sub setConfig ($) {
-	my ($this, $conf) = @_;
-
-	$$this{grafanaurl} = GDH::GrafanaURL->new->setConfig($conf);
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
-
-	$$this{verbose} = $$conf{verbose};
-	return $this;
-}
-
-sub fetchTimestamp ($$) {
-	my ($this, $file) = @_;
 	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat $file;
 	return $mtime;
 }
 
-sub read ($$) {
-	my ($this, $file) = @_;
+sub update_part_of_index ($$) {
+	my ($index, $part_name) = @_;
 
-	my $mtime = $this->fetchTimestamp($file);
-	return unless defined $mtime;
-
-	my $obj = main::read_as_json($file) // {
-		dashboard_index => {},
-		panel_index     => {},
-		fieldkey_index  => {},
-	};
-
-	$$this{filename}  = $file;
-	$$this{timestamp} = $mtime;
-	$$this{cache} = $obj;
+	my $old_mtime = $$index{"mtime_of_$part_name"};
+	my $mtime     = get_mtime "$STATUSDIR/index/$part_name.json";
+	if( $old_mtime < $mtime ){
+		open my $h, "<", "$STATUSDIR/index/$part_name.json" or do {
+			die "$STATUSDIR/index/$part_name.json: cannot open, stopped";
+		};
+		my $json = join "", <$h>;
+		close $h;
+		my $obj = eval { $JSONCODEC->decode($json); };
+		$$index{"$part_name"}          = $obj;
+		$$index{"mtime_of_$part_name"} = $mtime;
+	}
 }
 
-sub write ($$) {
-	my ($this, $file) = @_;
+sub search_panels_by_fieldkey_name ($$) {
+	my ($index, $fieldkey_name) = @_;
+	update_part_of_index $index, "search_panels_by_fieldkey_name";
+	my $result = $$index{search_panels_by_fieldkey_name}{$fieldkey_name};
+	return undef unless defined $result;
+	return [ sort keys %$result ];
+}
 
-	my $cache = $$this{cache};
-	main::write_as_json($file, $cache);
-	$$this{filename}  = $file;
-	$$this{timestamp} = time;
+sub search_dashboards_by_fieldkey_name ($$) {
+	my ($index, $fieldkey_name) = @_;
+	update_part_of_index $index, "search_dashboards_by_fieldkey_name";
+	my $result = $$index{search_dashboards_by_fieldkey_name}{$fieldkey_name};
+	return undef unless defined $result;
+	return [ sort keys %$result ];
+}
+
+sub search_panels_by_series_name ($$) {
+	my ($index, $series_name) = @_;
+	update_part_of_index $index, "search_panels_by_series_name";
+	my $result = $$index{search_panels_by_series_name}{$series_name};
+	return undef unless defined $result;
+	return [ sort keys %$result ];
+}
+
+sub search_dashboards_by_series_name ($$) {
+	my ($index, $series_name) = @_;
+	update_part_of_index $index, "search_dashboards_by_series_name";
+	my $result = $$index{search_dashboards_by_series_name}{$series_name};
+	return undef unless defined $result;
+	return [ sort keys %$result ];
+}
+
+sub get_dashboard ($$$) {
+	my ($conf, $index, $dashboard_name) = @_;
+	update_part_of_index $index, "dashboards";
+	my $result = $$index{dashboards}{$dashboard_name};
+	return undef unless defined $result;
+
+	my %r = %$result;
+	$r{url} = sprintf "%sd/%s/%s",
+		$$conf{GRAFANAURL}, $r{uid}, $r{slug};
+
+	return \%r;
+}
+
+sub get_panel ($$$) {
+	my ($conf, $index, $panel_name) = @_;
+	update_part_of_index $index, "panels";
+	my $result = $$index{panels}{$panel_name};
+	return undef unless defined $result;
+
+	my %r = %$result;
+	my ($dashboard_name, $panel_serial) = split m"\s+", $r{panel_name};
+	$r{url} = sprintf "%srender/d-solo/%s/%s?panelId=%d&width=600&height=200&timeout=5&orgId=2",
+		$$conf{GRAFANAURL}, $r{uid}, $r{slug}, $panel_serial;
+
+	return \%r;
+}
+
+########
+########
+########
+
+#### Web APIs
+
+sub action_ping ($$) {
+	my ($conn, $req) = @_;
+
+	my $res = HTTP::Response->new;
+	$res->code(200);
+	$res->header('Content-Type' => 'text/plain');
+	$res->content("OK\n");
+	$conn->send_response($res);
+}
+
+sub action_jump_to_dashboard_by_fieldkey_name ($$$$) {
+	my ($conf, $conn, $req, $index) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
+
+	my $result = search_dashboards_by_fieldkey_name $index, $query{q};
+	unless( defined $result ){
+		$conn->send_error(RC_NOT_FOUND);
+		return;
+	}
+
+	my $info = get_dashboard $conf, $index, $$result[0];
+
+	my $res = HTTP::Response->new;
+	$res->code(307);
+	$res->header('Location' => $$info{url});
+	$conn->send_response($res);
+}
+sub action_jump_to_dashboard_by_series_name ($$$$) {
+	my ($conf, $conn, $req, $index) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
+
+	my $result = search_dashboards_by_series_name $index, $query{q};
+	unless( defined $result ){
+		$conn->send_error(RC_NOT_FOUND);
+		return;
+	}
+
+	my $info = get_dashboard $conf, $index, $$result[0];
+
+	my $res = HTTP::Response->new;
+	$res->code(307);
+	$res->header('Location' => $$info{url});
+	$conn->send_response($res);
+}
+sub action_jump_to_panel_by_fieldkey_name ($$$$) {
+	my ($conf, $conn, $req, $index) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
+
+	my $result = search_panels_by_fieldkey_name $index, $query{q};
+	unless( defined $result ){
+		$conn->send_error(RC_NOT_FOUND);
+		return;
+	}
+
+	my $info = get_panel $conf, $index, $$result[0];
+
+	my $res = HTTP::Response->new;
+	$res->code(307);
+	$res->header('Location' => $$info{url});
+	$conn->send_response($res);
+}
+sub action_jump_to_panel_by_series_name ($$$$) {
+	my ($conf, $conn, $req, $index) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
+
+	my $result = search_panels_by_series_name $index, $query{q};
+	unless( defined $result ){
+		$conn->send_error(RC_NOT_FOUND);
+		return;
+	}
+
+	my $info = get_panel $conf, $index, $$result[0];
+
+	my $res = HTTP::Response->new;
+	$res->code(307);
+	$res->header('Location' => $$info{url});
+	$conn->send_response($res);
+}
+sub action_search_dashboards_by_fieldkey_name ($$$$) {
+	my ($conf, $conn, $req, $index) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
+
+	my $result = search_dashboards_by_fieldkey_name $index, $query{q};
+	unless( defined $result ){
+		$conn->send_error(RC_NOT_FOUND);
+		return;
+	}
+
+	my @result;
+	foreach my $dashboard_name ( @$result ){
+		my $info = get_dashboard $conf, $index, $dashboard_name;
+		push @result, $info;
+	}
+	my $json = eval { $JSONCODEC->encode(\@result); };
+
+	my $res = HTTP::Response->new;
+	$res->code(200);
+	$res->header('Content-Type' => 'text/javascript');
+	$res->content($json);
+	$conn->send_response($res);
+	return;
+}
+sub action_search_dashboards_by_series_name  ($$$$) {
+	my ($conf, $conn, $req, $index) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
+
+	my $result = search_dashboards_by_series_name $index, $query{q};
+	unless( defined $result ){
+		$conn->send_error(RC_NOT_FOUND);
+		return;
+	}
+
+	my @result;
+	foreach my $dashboard_name ( @$result ){
+		my $info = get_dashboard $conf, $index, $dashboard_name;
+		push @result, $info;
+	}
+	my $json = eval { $JSONCODEC->encode(\@result); };
+
+	my $res = HTTP::Response->new;
+	$res->code(200);
+	$res->header('Content-Type' => 'text/javascript');
+	$res->content($json);
+	$conn->send_response($res);
 	return;
 }
 
-sub refresh ($) {
-	my ($this) = @_;
-	my $file = $$this{filename};
-	my $timestamp = $$this{timestamp};
-	return unless defined $file;
+sub action_search_panels_by_fieldkey_name ($$$$) {
+	my ($conf, $conn, $req, $index) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
 
-	my $mtime = $this->fetchTimestamp($file);
-	return unless defined $mtime;
-
-	return unless $mtime > $timestamp;
-	$this->read( $file );
-}
-
-sub update ($$$$) {
-	my ($this, $namemap, $dashboardsrc, $dashboardlocations) = @_;
-
-	my $verbose = $$this{verbose};
-	my $cache = $$this{cache};
-	my $dashboard_regexp = $$this{dashboard_regexp};
-
-	# dashboard_name -> url, tag[], panel_name[], field name[]
-	my $dashboard_index = $$cache{dashboard_index};
-
-	# panel_name -> url, title, field name[]
-	my $panel_index     = $$cache{panel_index};
-
-	# fieldname -> dashboard_name[], panel_name[]
-	my $fieldkey_index = $$cache{fieldkey_index};
-
-	# panel_name  := dashboard_name . \x1c . real_panel
-	# field_name := retention_policy_name . \x1c . measurement_name . \x1c . field_key_name
-
-	# generation of dashboard index
-	main::debuglog "GDH::Indexes::update: building dashboard index...";
-
-	$namemap->forEach( sub {
-		my ($dashboardname, $blockname, $templatename, $captured, $fieldnames) = @_;
-
-		return unless $dashboardname =~ $dashboard_regexp;
-
-		while( my ($fieldname, undef) = each %$fieldnames ){
-			$$dashboard_index{$dashboardname}->{fieldnames}->{$fieldname} = 1;
-		}
-	} );
-	$dashboardsrc->forEach( sub {
-		my ($dashboardname, $objs, $tags) = @_;
-
-		return unless $dashboardname =~ $dashboard_regexp;
-
-		$$dashboard_index{$dashboardname}->{tags} = $tags;
-	} );
-	$dashboardsrc->forEachPanels( sub {
-		my ($dashboardname, $panelname, $paneltitle, $fieldnames) = @_;
-
-		return unless $dashboardname =~ $dashboard_regexp;
-
-		$$dashboard_index{$dashboardname}->{panelnames}->{$panelname} = 1;
-	} );
-
-	$dashboardlocations->forEach( sub {
-		my ($dashboardname, $id, $uid, $slug) = @_;
-
-		return unless $dashboardname =~ $dashboard_regexp;
-
-		$$dashboard_index{$dashboardname}->{id}   = $id;
-		$$dashboard_index{$dashboardname}->{uid}  = $uid;
-		$$dashboard_index{$dashboardname}->{slug} = $slug;
-	} );
-
-	# generation of panel index
-	main::debuglog "GDH::Indexes::update: building panel index...";
-
-	$dashboardsrc->forEachPanels( sub {
-		my ($dashboardname, $panelname, $paneltitle, $fieldnames) = @_;
-
-		return unless $dashboardname =~ $dashboard_regexp;
-
-		my $dashboard_id   = $$dashboard_index{$dashboardname}->{id};
-		my $dashboard_uid  = $$dashboard_index{$dashboardname}->{uid};
-		my $dashboard_slug = $$dashboard_index{$dashboardname}->{slug};
-
-		my (undef, $id) = split "\x1c", $panelname;
-
-		$$panel_index{$panelname}->{id}             = $id;
-		$$panel_index{$panelname}->{dashboard_name} = $dashboardname;
-		$$panel_index{$panelname}->{dashboard_id}   = $dashboard_id;
-		$$panel_index{$panelname}->{dashboard_uid}  = $dashboard_uid;
-		$$panel_index{$panelname}->{dashboard_slug} = $dashboard_slug;
-		$$panel_index{$panelname}->{title}          = $paneltitle;
-		$$panel_index{$panelname}->{fieldnames}     = $fieldnames;
-	} );
-
-	# generation of field key index
-	main::debuglog "GDH::Indexes::update: building field key index...";
-
-	$dashboardsrc->forEachPanels( sub {
-		my ($dashboardname, $panelname, $paneltitle, $fieldnames) = @_;
-
-		return unless $dashboardname =~ $dashboard_regexp;
-
-		while( my ($fieldname, undef) = each %$fieldnames ){
-			$$fieldkey_index{$fieldname}->{dashboardnames}->{$dashboardname} = 1;
-			$$fieldkey_index{$fieldname}->{panelnames}->{$panelname} = 1;
-		}
-	} );
-}
-
-# dashboard_name -> url, tag[], panel_name[], field name[]
-# panel_name -> url, title, field name[]
-# fieldname -> dashboard_name[], panel_name[]
-sub getDashboard ($$) {
-	my ($this, $dashboard_name) = @_;
-
-	my $dashboard_index = $$this{cache}->{dashboard_index};
-	my $grafanaurl      = $$this{grafanaurl};
-
-	my $dashboard = $$dashboard_index{$dashboard_name};
-	return undef unless defined $dashboard;
-
-	return {
-		dashboard_name => $dashboard_name,
-		dashboard_url  => $grafanaurl->makeDashboardURL( $$dashboard{uid}, $$dashboard{slug} ),
-		dashboard_tags => $$dashboard{tags},
-		panel_names    => $$dashboard{panelnames},
-		field_names    => $$dashboard{fieldnames},
-	};
-}
-
-sub getPanel ($$) {
-	my ($this, $panel_name) = @_;
-
-	my $panel_index = $$this{cache}->{panel_index};
-	my $grafanaurl  = $$this{grafanaurl};
-
-	my $panel = $$panel_index{$panel_name};
-	return undef unless defined $panel;
-
-	return {
-		panel_name  => $panel_name,
-		panel_id    => $$panel{id},
-		panel_title => $$panel{title},
-		panel_url   => $grafanaurl->makePanelURL( $$panel{dashboard_uid}, $$panel{dashboard_slug}, $$panel{id} ),
-		field_names => $$panel{fieldnames},
-	};
-}
-
-sub searchDashboardsByFieldName ($$) {
-	my ($this, $field_name) = @_;
-
-	my $fieldkey_index  = $$this{cache}->{fieldkey_index};
-	my $dashboard_index = $$this{cache}->{dashboard_index};
-	my $grafanaurl      = $$this{grafanaurl};
-	my $fieldinfo = $$fieldkey_index{$field_name};
-	unless( defined $fieldinfo ){
-		return ();
+	my $result = search_panels_by_fieldkey_name $index, $query{q};
+	unless( defined $result ){
+		$conn->send_error(RC_NOT_FOUND);
+		return;
 	}
 
-	my @r;
-	foreach my $dashboardname ( @{ $$fieldinfo{dashboardnames} } ){
-		my $dashboard = $this->getDashboard($dashboardname);
-		next unless defined $dashboard;
-		push @r, $dashboard;
+	my @result;
+	foreach my $panel_name ( @$result ){
+		my $info = get_panel $conf, $index, $panel_name;
+		push @result, $info;
 	}
+	my $json = eval { $JSONCODEC->encode(\@result); };
 
-	return @r;
-}
-
-sub searchPanelsByFieldName ($$) {
-	my ($this, $field_name) = @_;
-
-	my $fieldkey_index = $$this{cache}->{fieldkey_index};
-	my $panel_index    = $$this{cache}->{panel_index};
-	my $grafanaurl     = $$this{grafanaurl};
-	my $fieldinfo = $$fieldkey_index{$field_name};
-	unless( defined $fieldinfo ){
-		return ();
-	}
-
-	my @r;
-	while( my ($panelname, undef) = each %{$$fieldinfo{panelnames}} ){
-		my $panel = $this->getPanel($panelname);
-		next unless defined $panel;
-		push @r, $panel;
-	}
-
-	return @r;
-}
-
-
-########
-########
-########
-
-package GDH::Permissions;
-
-sub new () {
-	my $this = bless {
-		cache => {},
-		grafana => undef,
-
-		retentionpolicy_regexp => qr"^.*$",
-		measurement_regexp     => qr"^.*$",
-		fieldkey_regexp        => qr"^.*$",
-		dashboard_regexp       => qr"^.*$",
-
-		target_dashboards => {},
-
-		verbose => undef,
-	};
-	return $this;
-}
-
-sub setConfig ($) {
-	my ($this, $conf) = @_;
-
-	$$this{grafana} = GDH::Grafana->new->setConfig($conf);
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
-
-	$$this{target_dashboards} = $$conf{target_dashboards};
-
-	$$this{verbose} = $$conf{verbose};
-	return $this;
-}
-
-sub read ($$) {
-	my ($this, $file) = @_;
-
-	my $obj = main::read_as_json($file) // {};
-	$$this{cache} = $obj;
-}
-
-sub write ($$) {
-	my ($this, $file) = @_;
-
-	my $cache = $$this{cache};
-	main::write_as_json($file, $cache);
+	my $res = HTTP::Response->new;
+	$res->code(200);
+	$res->header('Content-Type' => 'text/javascript');
+	$res->content($json);
+	$conn->send_response($res);
 	return;
 }
 
-sub update ($$$) {
-	my ($this, $permission_rules, $dashboardlocations) = @_;
+sub action_search_panels_by_series_name ($$$$) {
+	my ($conf, $conn, $req, $index) = @_;
+	my $query = URI::Query->new( $req->uri->query );
+	my %query = $query->hash;
 
-	my $verbose = $$this{verbose};
-	my $dashboard_regexp = $$this{dashboard_regexp};
-	my $target_dashboards = $$this{target_dashboards};
-	my $cache   = $$this{cache};
-	my $grafana = $$this{grafana};
-
-	my %users = $grafana->readUsers();
-	
-	$dashboardlocations->forEach( sub {
-		my ($dashboardname, $dashboardid, $dashboarduid, $dashboardslug) = @_;
-
-		return unless $dashboardname =~ $dashboard_regexp;
-		if( defined $target_dashboards ){
-			return unless defined $$target_dashboards{$dashboardname};
-		}
-		main::debuglog "GDH::Permissions::update: registering dashboard \"%s\"...", $dashboardname;
-
-		my $permission = $$cache{$dashboardname};
-		unless( defined $permission ){
-			$permission = {};
-			$$cache{$dashboardname} = $permission;
-		}
-
-		foreach my $r ( @$permission_rules ){
-			my ($dashboardname_regexp, $operator, $users) = @$r;
-
-			if    ( $operator eq '+' ){
-				foreach my $u ( @$users ){ $$permission{$u} = 1; }
-			}elsif( $operator eq '-' ){
-				foreach my $u ( @$users ){ delete $$permission{$u}; }
-			}else{
-				%$permission = ();
-				foreach my $u ( @$users ){ $$permission{$u} = 1; }
-			}
-		}
-
-		my @userids;
-		while( my ($username, undef) = each %$permission ){
-			push @userids, $users{$username}->{id};
-		}
-		$grafana->registerPermission( $dashboarduid, \@userids );
-	} );
-}
-
-########
-########
-########
-
-package GDH::GrafanaURL;
-
-sub new () {
-	my $this = bless {
-		url   => undef,
-		orgid => undef,
-
-		retentionpolicy_regexp => qr"^.*$",
-		measurement_regexp     => qr"^.*$",
-		fieldkey_regexp        => qr"^.*$",
-		dashboard_regexp       => qr"^.*$",
-
-		verbose => undef,
-	};
-	return $this;
-}
-
-sub setConfig ($) {
-	my ($this, $conf) = @_;
-
-	$$this{url}   = $$conf{GRAFANAURL};
-	$$this{orgid} = $$conf{GRAFANAORGID};
-	$$this{retentionpolicy_regexp} = $$conf{RETENTION_POLICY_FILTER};
-	$$this{measurement_regexp}     = $$conf{MEASUREMENT_FILTER};
-	$$this{fieldkey_regexp}        = $$conf{FIELD_KEY_FILTER};
-	$$this{dashboard_regexp}       = $$conf{DASHBOARD_FILTER};
-
-	$$this{verbose} = $$conf{verbose};
-	return $this;
-}
-
-sub makeDashboardURL ($$$) {
-	my ($this, $dashboard_uid, $dashboard_slug) = @_;
-
-	my $url   = $$this{url};
-	my $orgid = $$this{orgid};
-
-	$url =~ s{/$}{};
-	$url .= sprintf "/d/%s/%s", $dashboard_uid, $dashboard_slug;
-	$url .= "?orgId=" . $orgid if $orgid;
-	return $url;
-}
-
-sub makePanelURL ($$$$) {
-	my ($this, $dashboard_uid, $dashboard_slug, $panel_id) = @_;
-
-	my $url   = $$this{url};
-	my $orgid = $$this{orgid};
-
-	$url =~ s{/$}{};
-	$url .= sprintf "/render/d-solo/%s/%s?panelId=%d&width=600&height=200&timeout=5",
-		$dashboard_uid, $dashboard_slug, $panel_id;
-	$url .= "&orgId=" . $orgid if $orgid;
-	return $url;
-}
-
-########
-########
-########
-
-package GDH::Difference;
-
-sub new () {
-	my $this = bless {
-	};
-	return $this;
-}
-
-sub backup ($$) {
-	my ($this, $file) = @_;
-
-	unless( -f  $file ){
-		unlink "$file.bak" if -f "$file.bak";
-		return 1;
+	my $result = search_panels_by_series_name $index, $query{q};
+	unless( defined $result ){
+		$conn->send_error(RC_NOT_FOUND);
+		return;
 	}
 
-	system "cp \Q$file\E \Q$file.bak\E";
-	if    ( $? & 127 ){
-		die;
-	}elsif( $? >> 8 ){
-		die;
+	my @result;
+	foreach my $panel_name ( @$result ){
+		my $info = get_panel $conf, $index, $panel_name;
+		push @result, $info;
 	}
+	my $json = eval { $JSONCODEC->encode(\@result); };
+
+	my $res = HTTP::Response->new;
+	$res->code(200);
+	$res->header('Content-Type' => 'text/javascript');
+	$res->content($json);
+	$conn->send_response($res);
+	return;
+}
+
+#### Sub Commands
+sub cmd_cron ($) {
+	my ($conf) = @_;
+
+	while( my ($k, $v) = each %$conf ){
+		$ENV{$k} = $v;
+	}
+
+	debuglog "cron: getting the series from influxdb...";
+	system_or_die "$EXECDIR/get_series_from_influxdb";
+	debuglog "cron: updating the unused series...";
+	system_or_die "$EXECDIR/update_unused_series";
+	opendir my $h, $DASHBOARDPLUGINDIR or do {
+		die "$DASHBOARDPLUGINDIR: cannot open, stopped";
+	};
+	foreach my $e ( sort readdir $h ){
+		next if $e =~ m"^\.";
+		debuglog "cron: executing plugin $e...";
+		system_or_die "$DASHBOARDPLUGINDIR/$e $STATUSDIR/unused_series $STATUSDIR/generated_dashboard";
+		debuglog "cron: updating the unused series...";
+		system_or_die "$EXECDIR/update_unused_series";
+	}
+	debuglog "cron: validating the dashboards...";
+	system_or_die "$EXECDIR/validate_dashboard";
+	debuglog "cron: preparing the dashboards...";
+	system_or_die "$EXECDIR/prepare_dashboard";
+	debuglog "cron: uploading the dashboards...";
+	system_or_die "$EXECDIR/upload_dashboard_to_grafana";
+	debuglog "cron: generating the index...";
+	system_or_die "$EXECDIR/generate_index";
+	debuglog "cron: done.";
 	return 1;
-}
-
-sub setTargetFieldNames ($$$) {
-	my ($this, $conf, $diff) = @_;
-
-	unless( defined $diff ){
-		$$conf{target_fieldnames} = undef;
-		return;
-	}
-
-	my %t;
-	while( my ($k, $v) = each %$diff ){ $t{$k} = 1; }
-	$$conf{target_fieldnames} = \%t;
-}
-
-sub setTargetDashboards ($$$) {
-	my ($this, $conf, $diff) = @_;
-
-	unless( defined $diff ){
-		$$conf{target_dashboards} = undef;
-		return;
-	}
-
-	my %t;
-	while( my ($k, $v) = each %$diff ){ $t{$k} = 1; }
-	$$conf{target_dashboards} = \%t;
-}
-
-sub compareFieldKeysWithBackup ($$) {
-	my ($this, $file) = @_;
-
-	my $old = main::read_as_json "$file.bak";
-	my $new = main::read_as_json $file;
-
-	my %keys;
-	while( my ($k1, $v1) = each %$old ){
-		while( my ($k2, $v2) = each %$v1 ){
-			while( my ($k3, $v3) = each %$v2 ){
-				$keys{$k1,$k2,$k3} += 1;
-			}
-		}
-	}
-	while( my ($k1, $v1) = each %$new ){
-		while( my ($k2, $v2) = each %$v1 ){
-			while( my ($k3, $v3) = each %$v2 ){
-				$keys{$k1,$k2,$k3} += 2;
-			}
-		}
-	}
-
-	my %r;
-	while( my ($k, $v) = each %keys ){
-		if( $v == 1 || $v == 2 ){
-			$r{$k} = $v;
-			next;
-		}
-	}
-	return \%r;
-}
-
-sub compareNameMapWithBackup ($$) {
-	my ($this, $file) = @_;
-
-	my $old = main::read_as_json "$file.bak";
-	my $new = main::read_as_json $file;
-
-	my %keys;
-	while( my ($k1, $v1) = each %$old ){
-		while( my ($k2, $v2) = each %$v1 ){
-			$keys{$k1,$k2} += 1;
-		}
-	}
-	while( my ($k1, $v1) = each %$new ){
-		while( my ($k2, $v2) = each %$v1 ){
-			$keys{$k1,$k2} += 2;
-		}
-	}
-
-	my %r;
-	while( my ($k, $v) = each %keys ){
-		my ($k1, $k2) = split m"\x1c", $k;
-
-		if( $v == 1 || $v == 2 ){
-			$r{$k1} = $v;
-			next;
-		}
-		my $old_json = $JSONCODEC->encode( $$old{$k1}{$k2} );
-		my $new_json = $JSONCODEC->encode( $$new{$k1}{$k2} );
-		my $d = $old_json cmp $new_json;
-		if( $d ){
-			$r{$k1} = 1;
-			next;
-		}
-	}
-	return \%r;
-}
-
-sub compareDashboardSourcesWithBackup ($$) {
-	my ($this, $file) = @_;
-
-	my $old = main::read_as_json "$file.bak";
-	my $new = main::read_as_json $file;
-
-	my %keys;
-	while( my ($k1, $v1) = each %$old ){
-		$keys{$k1} += 1;
-	}
-	while( my ($k1, $v1) = each %$new ){
-		$keys{$k1} += 2;
-	}
-
-	my %r;
-	while( my ($k, $v) = each %keys ){
-		if( $v == 1 || $v == 2 ){
-			$r{$k} = $v;
-			next;
-		}
-		my $old_json = $JSONCODEC->encode( $$old{$k} );
-		my $new_json = $JSONCODEC->encode( $$new{$k} );
-		my $d = $old_json cmp $new_json;
-		$r{$k} = 3 if $d;
-	}
-	return \%r;
-}
-
-
-########
-########
-########
-
-package main;
-
-sub cmd_cron ($$$) {
-	my ($conf, $map_rules, $permission_rules) = @_;
-
-	my $diff = GDH::Difference->new;
-
-	## step1
-	$diff->backup( $FIELDKEYS_FILE );
-
-	my $fieldkeys      = GDH::FieldKeys->new->setConfig($conf);
-	$fieldkeys->read ( $FIELDKEYS_FILE );
-	$fieldkeys->update;
-	$fieldkeys->write( $FIELDKEYS_FILE );
-
-	my $diff_fieldnames = $diff->compareFieldKeysWithBackup( $FIELDKEYS_FILE );
-	$diff->setTargetFieldNames( $conf, $diff_fieldnames );
-	main::debuglog "only %d field keys are updated.", int( keys %$diff_fieldnames );
-	return unless keys %$diff_fieldnames;
-
-	## step2
-	$diff->backup( $NAMEMAP_FILE );
-
-	my $namemap = GDH::NameMap->new->setConfig($conf);
-	$namemap->read ( $NAMEMAP_FILE );
-	$namemap->update($map_rules, $fieldkeys);
-	$namemap->write( $NAMEMAP_FILE );
-
-	my $diff_dashboards = $diff->compareNameMapWithBackup( $NAMEMAP_FILE );
-	$diff->setTargetDashboards( $conf, $diff_dashboards );
-	main::debuglog "only %d dashboards are updated.", int( keys %$diff_dashboards );
-	return unless keys %$diff_dashboards;
-
-	## step3
-	$diff->backup( $DASHBOARDSRC_FILE );
-
-	my $dashboardsrc = GDH::DashboardSources->new->setConfig($conf);
-	$dashboardsrc->read ( $DASHBOARDSRC_FILE );
-	$dashboardsrc->update($namemap);
-	$dashboardsrc->write( $DASHBOARDSRC_FILE );
-
-	my $diff_dashboards = $diff->compareDashboardSourcesWithBackup( $DASHBOARDSRC_FILE );
-	$diff->setTargetDashboards( $conf, $diff_dashboards );
-	main::debuglog "only %d dashboards are updated.", int( keys %$diff_dashboards );
-	return unless keys %$diff_dashboards;
-
-	## step4
-	my $dashboardlocations = GDH::DashboardLocations->new->setConfig($conf);
-	$dashboardlocations->read ( $DASHBOARDLOCATIONS_FILE );
-	$dashboardlocations->update($dashboardsrc);
-	$dashboardlocations->write( $DASHBOARDLOCATIONS_FILE );
-
-	## step5
-	my $indexes = GDH::Indexes->new->setConfig($conf);
-	$indexes->read ( $INDEXES_FILE );
-	$indexes->update($namemap, $dashboardsrc, $dashboardlocations);
-	$indexes->write( $INDEXES_FILE );
-
-	## step6
-	my $permissions = GDH::Permissions->new->setConfig($conf);
-	$permissions->read ( $PERMISSIONS_FILE );
-	$permissions->update($permission_rules, $dashboardlocations);
-	$permissions->write( $PERMISSIONS_FILE );
-}
-
-sub cmd_register ($$$) {
-	my ($conf, $map_rules, $permission_rules) = @_;
-
-	my $diff = GDH::Difference->new;
-	if( $$conf{step1} ){
-		if( $$conf{use_diff} ){
-			$diff->backup( $FIELDKEYS_FILE );
-		}
-
-		my $fieldkeys      = GDH::FieldKeys->new->setConfig($conf);
-		$fieldkeys->read ( $FIELDKEYS_FILE );
-		$fieldkeys->update;
-		$fieldkeys->write( $FIELDKEYS_FILE ) 			unless $$conf{dry_run};
-
-		if( $$conf{use_diff} ){
-			my $diff_fieldnames = $diff->compareFieldKeysWithBackup( $FIELDKEYS_FILE );
-			$diff->setTargetFieldNames( $conf, $diff_fieldnames );
-			debuglog "GDH::FieldKeys: only %d field keys are updated.", int( keys %$diff_fieldnames );
-		}
-	}
-
-	if( $$conf{step2} ){
-		if( $$conf{use_diff} ){
-			$diff->backup( $NAMEMAP_FILE );
-		}
-
-		my $fieldkeys = GDH::FieldKeys->new->setConfig($conf);
-		$fieldkeys->read ( $FIELDKEYS_FILE );
-
-		my $namemap = GDH::NameMap->new->setConfig($conf);
-		$namemap->read ( $NAMEMAP_FILE );
-		$namemap->update($map_rules, $fieldkeys);
-		$namemap->write( $NAMEMAP_FILE ) 			unless $$conf{dry_run};
-
-		if( $$conf{use_diff} ){
-			my $diff_dashboards = $diff->compareNameMapWithBackup( $NAMEMAP_FILE );
-			$diff->setTargetDashboards( $conf, $diff_dashboards );
-			debuglog "GDH::NameMap: only %d dashboards are updated.", int( keys %$diff_dashboards );
-		}
-	}
-
-	if( $$conf{step3} ){
-		if( $$conf{use_diff} ){
-			$diff->backup( $DASHBOARDSRC_FILE );
-		}
-
-		my $namemap = GDH::NameMap->new->setConfig($conf);
-		$namemap->read ( $NAMEMAP_FILE );
-
-		my $dashboardsrc = GDH::DashboardSources->new->setConfig($conf);
-		$dashboardsrc->read ( $DASHBOARDSRC_FILE );
-		$dashboardsrc->update($namemap);
-		$dashboardsrc->write( $DASHBOARDSRC_FILE ) 		unless $$conf{dry_run};
-
-		if( $$conf{use_diff} ){
-			my $diff_dashboards = $diff->compareDashboardSourcesWithBackup( $DASHBOARDSRC_FILE );
-			$diff->setTargetDashboards( $conf, $diff_dashboards );
-			debuglog "GDH::DashboardSources: only %d dashboards are updated.", int( keys %$diff_dashboards );
-		}
-	}
-
-	if( $$conf{step4} ){
-		my $dashboardsrc = GDH::DashboardSources->new->setConfig($conf);
-		$dashboardsrc->read ( $DASHBOARDSRC_FILE );
-
-		my $dashboardlocations = GDH::DashboardLocations->new->setConfig($conf);
-		$dashboardlocations->read ( $DASHBOARDLOCATIONS_FILE );
-		$dashboardlocations->update($dashboardsrc);
-		$dashboardlocations->write( $DASHBOARDLOCATIONS_FILE ) 	unless $$conf{dry_run};
-	}
-
-	if( $$conf{step5} ){
-		my $namemap = GDH::NameMap->new->setConfig($conf);
-		$namemap->read ( $NAMEMAP_FILE );
-		my $dashboardsrc = GDH::DashboardSources->new->setConfig($conf);
-		$dashboardsrc->read ( $DASHBOARDSRC_FILE );
-		my $dashboardlocations = GDH::DashboardLocations->new->setConfig($conf);
-		$dashboardlocations->read ( $DASHBOARDLOCATIONS_FILE );
-
-		my $indexes = GDH::Indexes->new->setConfig($conf);
-		$indexes->read ( $INDEXES_FILE );
-		$indexes->update($namemap, $dashboardsrc, $dashboardlocations);
-		$indexes->write( $INDEXES_FILE ) 			unless $$conf{dry_run};
-	}
-
-	if( $$conf{step6} ){
-		my $dashboardlocations = GDH::DashboardLocations->new->setConfig($conf);
-		$dashboardlocations->read ( $DASHBOARDLOCATIONS_FILE );
-
-		my $permissions = GDH::Permissions->new->setConfig($conf);
-		$permissions->read ( $PERMISSIONS_FILE );
-		$permissions->update($permission_rules, $dashboardlocations);
-		$permissions->write( $PERMISSIONS_FILE ) 		unless $$conf{dry_run};
-	}
-}
-
-sub search_panels ($%) {
-	my ($indexes, %query) = @_;
-
-	my @r;
-
-	my $panelname = $query{panelname};
-	if( $panelname ne '' ){
-		my $r = $indexes->getPanel( $panelname ) unless @r;
-		push @r, $r if defined $r;
-	}
-
-	my $dashboard = $query{dashboard};
-	my $panelid   = $query{panel_id};
-	if( $dashboard ne '' && $panelid ne '' ){
-		my $panelname = join "\x1c", $dashboard, $panelid;
-		my $r = $indexes->getPanel( $panelname ) unless @r;
-		push @r, $r if defined $r;
-	}
-
-	my $retentionpolicy = $query{retention_policy};
-	my $measurement     = $query{measurement};
-	my $fieldkey        = $query{field_key};
-	if( $retentionpolicy ne '' && $measurement ne '' && $fieldkey ne '' ){
-		my $fieldname = join "\x1c", $retentionpolicy, $measurement, $fieldkey;
-		@r = $indexes->searchPanelsByFieldName( $fieldname ) unless @r;
-	}
-
-	return @r;
-}
-
-sub search_dashboards ($%) {
-	my ($indexes, %query) = @_;
-
-	my @r;
-
-	my $dashboardname = $query{dashboard};
-	if( $dashboardname ne '' ){
-		@r = $indexes->getDashboard( $dashboardname ) unless @r;
-	}
-
-	my $retentionpolicy = $query{retention_policy};
-	my $measurement     = $query{measurement};
-	my $fieldkey        = $query{field_key};
-	if( $retentionpolicy ne '' && $measurement ne '' && $fieldkey ne '' ){
-		my $fieldname = join "\x1c", $retentionpolicy, $measurement, $fieldkey;
-		my $r = $indexes->searchDashboardsByFieldName( $fieldname ) unless @r;
-		push @r, $r if defined $r;
-	}
-
-	return @r;
-}
-
-sub action_jump_to_panel ($$$) {
-	my ($indexes, $conn, $req) = @_;
-	my $query = URI::Query->new( $req->uri->query );
-	my %query = $query->hash;
-
-	my @r = search_panels $indexes, %query;
-	unless( @r ){
-		$conn->send_error(RC_FORBIDDEN);
-		return;
-	}
-
-	my $dashboard_url = $r[0]->{panel_url};
-	my $res = HTTP::Response->new;
-	$res->code(307);
-	$res->header('Location' => $dashboard_url);
-	$conn->send_response($res);
-}
-
-sub action_search_panels ($$$) {
-	my ($indexes, $conn, $req) = @_;
-	my $query = URI::Query->new( $req->uri->query );
-	my %query = $query->hash;
-
-	my @r = search_panels $indexes, %query;
-	my $json = $JSONCODEC_RELAXED->encode( [@r] );
-
-	my $res = HTTP::Response->new;
-	$res->code(200);
-	$res->header('Content-Type' => 'text/javascript');
-	$res->content($json);
-	$conn->send_response($res);
-}
-
-sub action_jump_to_dashboard ($$$) {
-	my ($indexes, $conn, $req) = @_;
-	my $query = URI::Query->new( $req->uri->query );
-	my %query = $query->hash;
-
-	my @r = search_dashboards $indexes, %query;
-	unless( @r ){
-		$conn->send_error(RC_FORBIDDEN);
-		return;
-	}
-
-	my $dashboard_url = $r[0]->{dashboard_url};
-	my $res = HTTP::Response->new;
-	$res->code(307);
-	$res->header('Location' => $dashboard_url);
-	$conn->send_response($res);
-}
-
-sub action_search_dashboards ($$$) {
-	my ($indexes, $conn, $req) = @_;
-	my $query = URI::Query->new( $req->uri->query );
-	my %query = $query->hash;
-
-	my @r = search_dashboards $indexes, %query;
-	my $json = $JSONCODEC_RELAXED->encode( [@r] );
-
-	my $res = HTTP::Response->new;
-	$res->code(200);
-	$res->header('Content-Type' => 'text/javascript');
-	$res->content($json);
-	$conn->send_response($res);
 }
 
 sub cmd_daemon ($) {
@@ -2208,22 +546,20 @@ sub cmd_daemon ($) {
 	$0 = $NAME;
 	my $d = HTTP::Daemon->new(
 		'Reuse' => 1,
-		'LocalAddr' => $conf->{'LISTENADDR'},
-		'LocalPort' => $conf->{'LISTENPORT'}
+		'LocalAddr' => $$conf{GDHLISTENADDR},
+		'LocalPort' => $$conf{GDHLISTENPORT},
 	) or do {
-		die sprintf 'cannot listen %s:%d: %s, stopped', $conf->{'LISTENADDR'}, $conf->{'LISTENPORT'}, $OS_ERROR;
+		die sprintf 'cannot listen %s:%d: %s, stopped', $$conf{GDHLISTENADDR}, $$conf{GDHLISTENPORT}, $OS_ERROR;
 	};
 
-	$SIG{'TERM'} = sub {
+	my $index = {};
+
+	$SIG{TERM} = sub {
 		$d->shutdown;
 	};
-	$SIG{'HUP'} = sub {
-		if( open $LOGFH, '>>', $LOGFILE ){ $LOGFH->autoflush; }
-		else{ $LOGFH = *STDERR; }
+	$SIG{HUP} = sub {
+		setlogfile $LOGFILE if defined $LOGFILE;
 	};
-
-	my $indexes = GDH::Indexes->new->setConfig($conf);
-	$indexes->read( $INDEXES_FILE );
 
 	while (my $conn = $d->accept) {
 		my $req = $conn->get_request;
@@ -2231,18 +567,24 @@ sub cmd_daemon ($) {
 		my $method = $req->method;
 		my $path = uri_unescape $req->uri->path;
 		accesslog 'req: method=%s path=%s', $method, $path;
-		if    ($method eq 'GET' && $path eq "/jump_to_dashboard.html" ){
-			$indexes->refresh;
-			action_jump_to_dashboard $indexes, $conn, $req;
-		}elsif($method eq 'GET' && $path eq "/jump_to_panel.png" ){
-			$indexes->refresh;
-			action_jump_to_panel     $indexes, $conn, $req;
-		}elsif($method eq 'GET' && $path eq "/search_dashboards.json" ){
-			$indexes->refresh;
-			action_search_dashboards $indexes, $conn, $req;
-		}elsif($method eq 'GET' && $path eq "/search_panels.json" ){
-			$indexes->refresh;
-			action_search_panels     $indexes, $conn, $req;
+		if    ($method eq 'GET' && $path eq "/ping" ){
+			action_ping $conn, $req;
+		}elsif($method eq 'GET' && $path eq "/jump_to_dashboard_by_fieldkey_name.html" ){
+			action_jump_to_dashboard_by_fieldkey_name $conf, $conn, $req, $index;
+		}elsif($method eq 'GET' && $path eq "/jump_to_dashboard_by_series_name.html" ){
+			action_jump_to_dashboard_by_series_name   $conf, $conn, $req, $index;
+		}elsif($method eq 'GET' && $path eq "/jump_to_panel_by_fieldkey_name.png" ){
+			action_jump_to_panel_by_fieldkey_name     $conf, $conn, $req, $index;
+		}elsif($method eq 'GET' && $path eq "/jump_to_panel_by_series_name.png" ){
+			action_jump_to_panel_by_series_name       $conf, $conn, $req, $index;
+		}elsif($method eq 'GET' && $path eq "/search_dashboards_by_fieldkey_name.json" ){
+			action_search_dashboards_by_fieldkey_name $conf, $conn, $req, $index;
+		}elsif($method eq 'GET' && $path eq "/search_dashboards_by_series_name.json" ){
+			action_search_dashboards_by_series_name   $conf, $conn, $req, $index;
+		}elsif($method eq 'GET' && $path eq "/search_panels_by_fieldkey_name.json" ){
+			action_search_panels_by_fieldkey_name     $conf, $conn, $req, $index;
+		}elsif($method eq 'GET' && $path eq "/search_panels_by_series_name.json" ){
+			action_search_panels_by_series_name       $conf, $conn, $req, $index;
 		}else{
 			$conn->send_error(RC_FORBIDDEN);
 		}
@@ -2253,102 +595,65 @@ sub cmd_daemon ($) {
 
 ####
 if    ( $ARGV[0] eq "daemon" ){
-	my $conf           = read_helper_conf;
+	use Getopt::Long 'GetOptionsFromArray';
+	my %option = (
+		DEBUG     => undef,
+		LOGFILE   => undef,
+		STATUSDIR => undef,
+		GDHLISTENADDR => undef,
+		GDHLISTENPORT => undef,
+	);
+	my $ok = GetOptionsFromArray( [@ARGV[1..$#ARGV]],
+		"conffile|c=s"  => sub { $GDHCONFFILE = $_[1]; },
 
+		# command-line options overwrite setting file.
+		"verbose|v"     => sub { $option{DEBUG} = 1; $DEBUG = 1; $LOGFILE = *STDERR; setlogfile *STDERR; },
+		"logfile|l=s"   => sub { $option{LOGFILE}   = $_[1]; $LOGFILE = $_[1]; setlogfile $_[1]; },
+		"statusdir|s=s" => sub { $option{STATUSDIR} = $_[1]; },
+		"listen-addr|s=s" => sub { $option{GDHLISTENADDR} = $_[1]; },
+		"listen-port|i=s" => sub { $option{GDHLISTENPORT} = $_[1]; },
+	);
+	unless( $ok ){
+		print "specified invalid option(s).\n";
+		exit 2;
+	}
+	my $conf = read_gdh_conf %option;
 	cmd_daemon $conf;
 	exit 0;
 
 }elsif( $ARGV[0] eq "cron" ){
 	use Getopt::Long 'GetOptionsFromArray';
 	my %option = (
-		stderr           => 0,
-
-		verbose          => 1,
-		use_diff         => 1,
-		
-		target_fieldnames => undef,
-		target_dashboards => undef,
+		DEBUG     => undef,
+		LOGFILE   => undef,
+		EXECDIR   => undef,
+		STATUSDIR => undef,
+		DASHBOARDPLUGINDIR => undef,
 	);
 	my $ok = GetOptionsFromArray( [@ARGV[1..$#ARGV]],
-		"verbose|v+" => sub { $option{verbose} = $_[1]; $option{DEBUG} = 1; },
-		"use-diff!"  => sub { $option{use_diff} = $_[1]; },
+		"conffile|c=s"  => sub { $GDHCONFFILE = $_[1]; },
 
-		"retention-policy-filter=s" => sub { $option{RETENTION_POLICY_FILTER} = $_[1]; },
-		"measurement-filter=s"      => sub { $option{MEASUREMENT_FILTER} = $_[1]; },
-		"field-key-filter=s"        => sub { $option{FIELD_KEY_FILTER} = $_[1]; },
-		"dashboard-filter=s"        => sub { $option{DASHBOARD_FILTER} = $_[1]; },
+		# command-line options overwrite setting file.
+		"verbose|v"     => sub { $option{DEBUG} = 1; $DEBUG = 1; $LOGFILE = *STDERR; setlogfile *STDERR; },
+		"logfile|l=s"   => sub { $option{LOGFILE}   = $_[1]; $LOGFILE = $_[1]; setlogfile $_[1]; },
+		"execdir|e=s"   => sub { $option{EXECDIR}   = $_[1]; },
+		"statusdir|s=s" => sub { $option{STATUSDIR} = $_[1]; },
+		"dashboard-plugins-dir|p=s" => sub { $option{DASHBOARDPLUGINDIR} = $_[1]; },
 	);
 	unless( $ok ){
 		print "specified invalid option(s).\n";
 		exit 2;
 	}
-	my $conf           = read_helper_conf;
-	my $maprule        = read_maprule; 
-	my $permissionrule = read_permissionrule; 
-
-	cmd_cron $conf, $maprule, $permissionrule;
-	exit 0;
-
-}elsif( $ARGV[0] eq "register" ){
-	use Getopt::Long 'GetOptionsFromArray';
-	my %option = (
-		stderr           => 1,
-
-		verbose          => 1,
-		dry_run          => 0,
-		use_diff         => 1,
-		step1 => 1,
-		step2 => 1,
-		step3 => 1,
-		step4 => 1,
-		step5 => 1,
-		step6 => 1,
-		
-		target_fieldnames => undef,
-		target_dashboards => undef,
-	);
-	my $ok = GetOptionsFromArray( [@ARGV[1..$#ARGV]],
-		"verbose|v+" => sub { $option{verbose} = $_[1]; $option{DEBUG} = 1; },
-		"dry-run!"   => sub { $option{dry_run} = $_[1]; },
-		"use-diff!"  => sub { $option{use_diff} = $_[1]; },
-
-		"explore-field-keys-step!"   => sub { $option{step1} = $_[1]; },
-		"generate-map-step!"         => sub { $option{step2} = $_[1]; },
-		"generate-dashboards-step!"  => sub { $option{step3} = $_[1]; },
-		"register-dashboards-step!"  => sub { $option{step4} = $_[1]; },
-		"generate-indexes-step!"     => sub { $option{step5} = $_[1]; },
-		"register-permissions-step!" => sub { $option{step6} = $_[1]; },
-
-		"retention-policy-filter=s" => sub { $option{RETENTION_POLICY_FILTER} = $_[1]; },
-		"measurement-filter=s"      => sub { $option{MEASUREMENT_FILTER} = $_[1]; },
-		"field-key-filter=s"        => sub { $option{FIELD_KEY_FILTER} = $_[1]; },
-		"dashboard-filter=s"        => sub { $option{DASHBOARD_FILTER} = $_[1]; },
-	);
-	unless( $ok ){
-		print "specified invalid option(s).\n";
-		exit 2;
-	}
-	my $conf           = read_helper_conf %option;
-	my $maprule        = read_maprule; 
-	my $permissionrule = read_permissionrule; 
-
-	cmd_register $conf, $maprule, $permissionrule;
+	my $conf = read_gdh_conf %option;
+	cmd_cron $conf;
 	exit 0;
 
 }else{
 	print "usage: % $0 {daemon|cron}\n";
-	print "           or\n";
-	print "       % $0 register [OPTIONS]\n";
 	print "\n";
 	print "     OPTIONS    --verbose\n";
 	print "                --dry-run\n";
-	print "                --no-use-diff\n";
-	print "                --no-explore-field-keys-step\n";
-	print "                --no-generate-map-step\n";
-	print "                --no-generate-dashboards-step\n";
-	print "                --no-register-dashboards-step\n";
-	print "                --no-generate-indexes-step\n";
-	print "                --no-register-permissions-step\n";
+	print "                --refresh\n";
 	print "\n";
 	exit 0;
 }
@@ -2403,4 +708,7 @@ SASAJIMA Toshihiro
 =head1 SEE ALSO
 
 L<grafana-dashboard-helper.conf(5)>
+
+
+
 

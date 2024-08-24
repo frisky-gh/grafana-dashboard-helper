@@ -1,0 +1,43 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+configure)
+
+	GROUP="grafana-dashboard-helper"
+	USER="grafana-dashboard-helper"
+	LOGDIR="/var/log/grafana-dashboard-helper"
+	DATADIR="/var/lib/grafana-dashboard-helper"
+	CONFDIR="/etc/grafana-dashboard-helper"
+	DASHBOARDPLUGINDIR="/etc/grafana-dashboard-helper/dashboard-plugins"
+
+	for i in \
+		$LOGDIR $CONFDIR $DASHBOARDPLUGINDIR \
+		$CONFDIR/grafana-dashboard-helper.conf \
+		$DASHBOARDPLUGINDIR/40_ncrt_disk.sh \
+		$DASHBOARDPLUGINDIR/40_ncrt_nic.sh \
+		$DASHBOARDPLUGINDIR/50_ncrt_generic_volume.sh \
+		$DASHBOARDPLUGINDIR/60_ncrt_generic.sh \
+		$DASHBOARDPLUGINDIR/90_generic.sh
+	do
+		test -e $i && chown $USER:$GROUP $i
+	done
+
+	for i in \
+		$DATADIR/generated_dashboard \
+		$DATADIR/index \
+		$DATADIR/influxdb_output \
+		$DATADIR/influxdb_series \
+		$DATADIR/merged_dashboard \
+		$DATADIR/unused_series \
+		$DATADIR/uploaded_dashboard \
+		$DATADIR/used_series \
+		$DATADIR/validated_dashboard
+	do
+		test -d $i || mkdir $i
+		chown $USER:$GROUP $i
+	done
+	;;
+esac
+

@@ -1,4 +1,10 @@
-grafana-dashboard-helper (0.5-1) UNRELEASED; urgency=medium
+grafana-dashboard-helper (1.0) UNRELEASED; urgency=medium
+
+  * change the system architecture.
+
+ -- frisky-gh <frisky-.-gh@watao3.info>  Fri, 23 Aug 2024 18:05:51 +0000
+
+grafana-dashboard-helper (0.5-1) unstable; urgency=medium
 
   * replace all graphs depended on angular plugin.
 
