@@ -38,6 +38,8 @@ configure)
 		test -d $i || mkdir $i
 		chown $USER:$GROUP $i
 	done
+
+	update-rc.d grafana-dashboard-helper defaults
 	;;
 esac
 
