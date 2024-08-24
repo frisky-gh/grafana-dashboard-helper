@@ -151,6 +151,7 @@ sub read_gdh_conf (;%) {
 		'GDHLISTENADDR' => 'localhost',
 		'GDHLISTENPORT' => 46849,
 		'GDHURL'        => 'http://localhost:46849/',
+		'GDHGRAFANAURL' => 'http://localhost:3000/',
 
 		'GRAFANAURL'         => 'http://localhost:3000/',
 		'GRAFANATOKEN'       => 'XXXXSECRETXXXX',
@@ -199,7 +200,7 @@ sub read_gdh_conf (;%) {
 	setlogfile $LOGFILE if defined $LOGFILE;
 
 	# add "/" to the tail of each urls
-	foreach my $i ( 'GDHURL', 'GRAFANAURL', 'INFLUXDBURL' ){
+	foreach my $i ( 'GDHURL', 'GDHGRAFANAURL', 'GRAFANAURL', 'INFLUXDBURL' ){
 		$conf{$i} .= "/" unless $conf{$i} =~ m"/$";
 	}
 
@@ -296,7 +297,7 @@ sub get_dashboard ($$$) {
 
 	my %r = %$result;
 	$r{url} = sprintf "%sd/%s/%s",
-		$$conf{GRAFANAURL}, $r{uid}, $r{slug};
+		$$conf{GDHGRAFANAURL}, $r{uid}, $r{slug};
 
 	return \%r;
 }

@@ -8,12 +8,12 @@ fi
 INPUT_DIR=$1
 OUTPUT_DIR=$2
 
-if [ "$DATASOURCE" = "" ] ; then
-	echo "environment: DATASOURCE: not defined."
+if [ "$GRAFANADATASOURCE" = "" ] ; then
+	echo "environment: GRAFANADATASOURCE: not defined."
 	exit 2
 fi
-if [ "$BUCKET" = "" ] ; then
-	echo "environment: BUCKET: not defined."
+if [ "$INFLUXDBBUCKET" = "" ] ; then
+	echo "environment: INFLUXDBBUCKET: not defined."
 	exit 2
 fi
 
@@ -35,7 +35,7 @@ cat <<EOF
 ####
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -100,9 +100,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) )",
       "refId": "A"
     }
   ],
@@ -111,7 +111,7 @@ cat <<EOF
 },
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -176,9 +176,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-throughput-mbps\", \"longtermavg-of-link[$nicname]-tx-throughput-mbps\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-throughput-mbps\", \"longtermavg-of-link[$nicname]-tx-throughput-mbps\"] ) )",
       "refId": "A"
     }
   ],
@@ -188,7 +188,7 @@ cat <<EOF
 #### Packet
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -253,9 +253,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-packets-ppm\", \"link[$nicname]-tx-packets-ppms\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-packets-ppm\", \"link[$nicname]-tx-packets-ppms\"] ) )",
       "refId": "A"
     }
   ],
@@ -264,7 +264,7 @@ cat <<EOF
 },
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -329,9 +329,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-packets-ppm\", \"longtermavg-of-link[$nicname]-tx-packets-ppms\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-packets-ppm\", \"longtermavg-of-link[$nicname]-tx-packets-ppms\"] ) )",
       "refId": "A"
     }
   ],
@@ -341,7 +341,7 @@ cat <<EOF
 #### Dropped
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -406,9 +406,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-dropped-ppm\", \"link[$nicname]-tx-dropped-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-dropped-ppm\", \"link[$nicname]-tx-dropped-ppm\"] ) )",
       "refId": "A"
     }
   ],
@@ -417,7 +417,7 @@ cat <<EOF
 },
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -482,9 +482,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-dropped-ppm\", \"longtermavg-of-link[$nicname]-tx-dropped-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-dropped-ppm\", \"longtermavg-of-link[$nicname]-tx-dropped-ppm\"] ) )",
       "refId": "A"
     }
   ],
@@ -494,7 +494,7 @@ cat <<EOF
 #### Errors
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -559,9 +559,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-errors-ppm\", \"link[$nicname]-tx-errors-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-errors-ppm\", \"link[$nicname]-tx-errors-ppm\"] ) )",
       "refId": "A"
     }
   ],
@@ -570,7 +570,7 @@ cat <<EOF
 },
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -635,9 +635,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-errors-ppm\", \"longtermavg-of-link[$nicname]-tx-errors-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-errors-ppm\", \"longtermavg-of-link[$nicname]-tx-errors-ppm\"] ) )",
       "refId": "A"
     }
   ],
@@ -647,7 +647,7 @@ cat <<EOF
 #### Misc
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -712,9 +712,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-mcast-ppm\", \"link[$nicname]-tx-mcast-ppm\", \"link[$nicname]-rx-overrun-ppm\", \"link[$nicname]-tx-overrun-ppm\", \"link[$nicname]-rx-carrier-ppm\", \"link[$nicname]-tx-carrier-ppm\", \"link[$nicname]-rx-collsns-ppm\", \"link[$nicname]-tx-collsns-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-mcast-ppm\", \"link[$nicname]-tx-mcast-ppm\", \"link[$nicname]-rx-overrun-ppm\", \"link[$nicname]-tx-overrun-ppm\", \"link[$nicname]-rx-carrier-ppm\", \"link[$nicname]-tx-carrier-ppm\", \"link[$nicname]-rx-collsns-ppm\", \"link[$nicname]-tx-collsns-ppm\"] ) )",
       "refId": "A"
     }
   ],
@@ -723,7 +723,7 @@ cat <<EOF
 },
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -788,9 +788,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-mcast-ppm\", \"longtermavg-of-link[$nicname]-tx-mcast-ppm\", \"longtermavg-of-link[$nicname]-rx-overrun-ppm\", \"longtermavg-of-link[$nicname]-tx-overrun-ppm\", \"longtermavg-of-link[$nicname]-rx-carrier-ppm\", \"longtermavg-of-link[$nicname]-tx-carrier-ppm\", \"longtermavg-of-link[$nicname]-rx-collsns-ppm\", \"longtermavg-of-link[$nicname]-tx-collsns-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-mcast-ppm\", \"longtermavg-of-link[$nicname]-tx-mcast-ppm\", \"longtermavg-of-link[$nicname]-rx-overrun-ppm\", \"longtermavg-of-link[$nicname]-tx-overrun-ppm\", \"longtermavg-of-link[$nicname]-rx-carrier-ppm\", \"longtermavg-of-link[$nicname]-tx-carrier-ppm\", \"longtermavg-of-link[$nicname]-rx-collsns-ppm\", \"longtermavg-of-link[$nicname]-tx-collsns-ppm\"] ) )",
       "refId": "A"
     }
   ],

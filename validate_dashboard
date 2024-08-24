@@ -72,8 +72,8 @@ foreach my $dashboardname ( sort readdir $h ){
 		my $panelblockname = $1;
 
 		# read panel json
-		open my $j, "<", "$INPUT_DIR/$dashboardname/$panelfile" or do {
-			die "$INPUT_DIR/$dashboardname/$panelfile: cannot open, stopped";
+		open my $j, "<", "$INPUT_DIR/$dashboardname/$panelblockfile" or do {
+			die "$INPUT_DIR/$dashboardname/$panelblockfile: cannot open, stopped";
 		};
 		my $json;
 		while( <$j> ){
@@ -83,7 +83,7 @@ foreach my $dashboardname ( sort readdir $h ){
 		close $j;
 		my $obj = eval { $codec->decode( $json ); };
 		if( $@ ){
-			die "$INPUT_DIR/$dashboardname/$panelfile: invalid JSON format, stopped";
+			die "$INPUT_DIR/$dashboardname/$panelblockfile: invalid JSON format, stopped";
 		}
 
 		# read field keys used in the panels
@@ -95,7 +95,7 @@ foreach my $dashboardname ( sort readdir $h ){
 		close $j;
 		my $obj = eval { $codec->decode( $json ); };
 		if( $@ ){
-			die "$INPUT_DIR/$dashboardname/$panelfile: invalid JSON format, stopped";
+			die "$INPUT_DIR/$dashboardname/$panelblockfile: invalid JSON format, stopped";
 		}
 
 		# validate id and gridPos in the panels

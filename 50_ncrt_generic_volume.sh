@@ -8,12 +8,12 @@ fi
 INPUT_DIR=$1
 OUTPUT_DIR=$2
 
-if [ "$DATASOURCE" = "" ] ; then
-	echo "environment: DATASOURCE: not defined."
+if [ "$GRAFANADATASOURCE" = "" ] ; then
+	echo "environment: GRAFANADATASOURCE: not defined."
 	exit 2
 fi
-if [ "$BUCKET" = "" ] ; then
-	echo "environment: BUCKET: not defined."
+if [ "$INFLUXDBBUCKET" = "" ] ; then
+	echo "environment: INFLUXDBBUCKET: not defined."
 	exit 2
 fi
 
@@ -35,7 +35,7 @@ cat <<EOF
 ####
 {
   "datasource": {
-    "type": "$DATASOURCE"
+    "type": "$GRAFANADATASOURCE"
   },
   "fieldConfig": {
     "defaults": {
@@ -100,9 +100,9 @@ cat <<EOF
   "targets": [
     {
       "datasource": {
-        "type": "$DATASOURCE"
+        "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$BUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"$volumename-total\", \"$volumename-avail\", \"$volumename-free\", \"$volumename-used\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"$volumename-total\", \"$volumename-avail\", \"$volumename-free\", \"$volumename-used\"] ) )",
       "refId": "A"
     }
   ],
