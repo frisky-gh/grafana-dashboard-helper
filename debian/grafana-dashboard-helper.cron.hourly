@@ -3,4 +3,4 @@
 test -x /usr/bin/sudo || exit 0
 test -x /usr/bin/grafana-dashboard-helper || exit 0
 
-sudo -u grafana-dashboard-helper /usr/bin/grafana-dashboard-helper cron >> /var/log/influxdb/grafana-dashboard-helper.hourly
+sudo -u grafana-dashboard-helper /usr/bin/grafana-dashboard-helper cron >> /var/log/grafana-dashboard-helper/grafana-dashboard-helper.hourly
