@@ -1,0 +1,6 @@
+#!/bin/sh
+
+test -x /usr/bin/sudo || exit 0
+test -x /usr/bin/grafana-dashboard-helper || exit 0
+
+sudo -u influxdb /usr/bin/grafana-dashboard-helper cron >> /var/log/influxdb/grafana-dashboard-helper.hourly

@@ -102,7 +102,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) |> aggregateWindow(every: v.windowPeriod, fn: mean) )",
       "refId": "A"
     }
   ],

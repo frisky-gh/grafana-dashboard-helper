@@ -102,7 +102,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE",
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"$measurement\" $tags_cond and r._field == \"$fieldkey\" )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"$measurement\" $tags_cond and r._field == \"$fieldkey\" |> aggregateWindow(every: v.windowPeriod, fn: mean) )",
       "refId": "A"
     }
   ],

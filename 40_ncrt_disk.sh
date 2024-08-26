@@ -95,7 +95,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"disk[$diskname]-total\", \"disk[$diskname]-avail\", \"disk[$diskname]-used\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"disk[$diskname]-total\", \"disk[$diskname]-avail\", \"disk[$diskname]-used\"] ) |> aggregateWindow(every: v.windowPeriod, fn: mean) )",
       "refId": "A"
     }
   ],
