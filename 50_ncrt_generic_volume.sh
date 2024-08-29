@@ -44,8 +44,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -102,7 +102,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"$volumename-total\", \"$volumename-avail\", \"$volumename-free\", \"$volumename-used\"] ) |> aggregateWindow(every: v.windowPeriod, fn: mean) )",
+      "query": "import \"regexp\"\nt1=from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"$volumename-total\", \"$volumename-avail\", \"$volumename-free\", \"$volumename-used\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)\nt2=from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and regexp.replaceAllString(r: /-(total|avail|free)\.[-a-zA-Z]+$/, v: r._field, t: \"\") == \"$volumename\" ) |> aggregateWindow(every: v.windowPeriod, fn: mean)\nunion(tables: [t1, t2])",
       "refId": "A"
     }
   ],

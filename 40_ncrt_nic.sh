@@ -44,8 +44,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -102,7 +102,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) |> aggregateWindow(every: v.windowPeriod, fn: mean) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -120,8 +120,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -178,7 +178,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-throughput-mbps\", \"longtermavg-of-link[$nicname]-tx-throughput-mbps\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-throughput-mbps\", \"longtermavg-of-link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -197,8 +197,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -255,7 +255,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-packets-ppm\", \"link[$nicname]-tx-packets-ppms\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-packets-ppm\", \"link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -273,8 +273,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -331,7 +331,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-packets-ppm\", \"longtermavg-of-link[$nicname]-tx-packets-ppms\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-packets-ppm\", \"longtermavg-of-link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -350,8 +350,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -408,7 +408,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-dropped-ppm\", \"link[$nicname]-tx-dropped-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-dropped-ppm\", \"link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -426,8 +426,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -484,7 +484,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-dropped-ppm\", \"longtermavg-of-link[$nicname]-tx-dropped-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-dropped-ppm\", \"longtermavg-of-link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -503,8 +503,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -561,7 +561,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-errors-ppm\", \"link[$nicname]-tx-errors-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-errors-ppm\", \"link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -579,8 +579,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -637,7 +637,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-errors-ppm\", \"longtermavg-of-link[$nicname]-tx-errors-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-errors-ppm\", \"longtermavg-of-link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -656,8 +656,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -714,7 +714,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-mcast-ppm\", \"link[$nicname]-tx-mcast-ppm\", \"link[$nicname]-rx-overrun-ppm\", \"link[$nicname]-tx-overrun-ppm\", \"link[$nicname]-rx-carrier-ppm\", \"link[$nicname]-tx-carrier-ppm\", \"link[$nicname]-rx-collsns-ppm\", \"link[$nicname]-tx-collsns-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-mcast-ppm\", \"link[$nicname]-tx-mcast-ppm\", \"link[$nicname]-rx-overrun-ppm\", \"link[$nicname]-tx-overrun-ppm\", \"link[$nicname]-rx-carrier-ppm\", \"link[$nicname]-tx-carrier-ppm\", \"link[$nicname]-rx-collsns-ppm\", \"link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -732,8 +732,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -790,7 +790,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-mcast-ppm\", \"longtermavg-of-link[$nicname]-tx-mcast-ppm\", \"longtermavg-of-link[$nicname]-rx-overrun-ppm\", \"longtermavg-of-link[$nicname]-tx-overrun-ppm\", \"longtermavg-of-link[$nicname]-rx-carrier-ppm\", \"longtermavg-of-link[$nicname]-tx-carrier-ppm\", \"longtermavg-of-link[$nicname]-rx-collsns-ppm\", \"longtermavg-of-link[$nicname]-tx-collsns-ppm\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-mcast-ppm\", \"longtermavg-of-link[$nicname]-tx-mcast-ppm\", \"longtermavg-of-link[$nicname]-rx-overrun-ppm\", \"longtermavg-of-link[$nicname]-tx-overrun-ppm\", \"longtermavg-of-link[$nicname]-rx-carrier-ppm\", \"longtermavg-of-link[$nicname]-tx-carrier-ppm\", \"longtermavg-of-link[$nicname]-rx-collsns-ppm\", \"longtermavg-of-link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],

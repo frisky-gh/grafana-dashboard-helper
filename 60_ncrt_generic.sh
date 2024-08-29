@@ -45,7 +45,7 @@ cat <<EOF
         "barAlignment":      0,
         "lineWidth":         1,
         "fillOpacity":       0,
-        "gradientMode":      "none",
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -102,7 +102,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and r._field == \"$fieldkey\" |> aggregateWindow(every: v.windowPeriod, fn: mean) )",
+      "query": "import \"regexp\"\nt1=from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and r._field == \"$fieldkey\" |> aggregateWindow(every: v.windowPeriod, fn: mean) )\nt2=from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and regexp.replaceAllString(r: /\.[-a-zA-Z]+$/, v: r._field, t: \"\") == \"$fieldkey\" |> aggregateWindow(every: v.windowPeriod, fn: mean) )\nunion(tables: [t1, t2])",
       "refId": "A"
     }
   ],

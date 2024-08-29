@@ -37,8 +37,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -95,7 +95,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"disk[$diskname]-total\", \"disk[$diskname]-avail\", \"disk[$diskname]-used\"] ) |> aggregateWindow(every: v.windowPeriod, fn: mean) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"disk[$diskname]-total\", \"disk[$diskname]-avail\", \"disk[$diskname]-used\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
@@ -113,8 +113,8 @@ cat <<EOF
         "lineInterpolation": "linear",
         "barAlignment":      0,
         "lineWidth":         1,
-        "fillOpacity":       0,
-        "gradientMode":      "none",
+        "fillOpacity":       20,
+        "gradientMode":      "opacity",
         "spanNulls":         false,
         "insertNulls":       false,
         "showPoints":        "auto",
@@ -171,7 +171,7 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"disk[$diskname]-itotal\", \"disk[$diskname]-iavail\", \"disk[$diskname]-iused\"] ) )",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"disk[$diskname]-itotal\", \"disk[$diskname]-iavail\", \"disk[$diskname]-iused\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     }
   ],
