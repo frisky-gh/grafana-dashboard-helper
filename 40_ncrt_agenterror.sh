@@ -31,7 +31,7 @@ function generatePanel {
 
 cat <<EOF
 [
-#### NCRT Generic
+#### NCRT Agent Error
 {
   "datasource": {
     "type": "$GRAFANADATASOURCE"
@@ -77,7 +77,7 @@ cat <<EOF
     },
     "overrides": []
   },
-  "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+  "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
   "id": null,
   "options": {
     "tooltip": {
@@ -107,7 +107,7 @@ cat <<EOF
       "refId": "B"
     }
   ],
-  "title": "$fieldkey in $host (Generic)",
+  "title": "Error Status of Agent on $agentname",
   "type": "timeseries"
 }
 ]
@@ -123,13 +123,19 @@ while read series ; do
 	host="${series##*,host=}"
 
 	while read fieldkey ; do
-		fieldkey_writable="${fieldkey//\//%2F}"
+		case "$fieldkey" in
+			ncrtagent\[*\]-error ) ;;
+			* ) continue ;;
+		esac
+		agentname="${fieldkey%\]-*}"
+		agentname="${agentname#ncrtagent\[}"
+		agentname_writable="${agentnamey//\//%2F}"
 
-		f=$OUTPUT_DIR/$host,$measure/60_$fieldkey_writable
+		f=$OUTPUT_DIR/$host,$measure/90_agenterror_$agentname_writable
 		mkdir -p $OUTPUT_DIR/$host,$measure
-		generatePanel "$host" "$measure" "$fieldkey"	> $f.json
+		generatePanel "$host" "$measure" "$fieldkey" "$agentname"	> $f.json
 		echo "$series $fieldkey"			> $f.fieldkeys
-		echo "${0##*/}"					> $f.pluginname
+		echo "40_ncrt_agenterror.sh"			> $f.pluginname
 
 	done < $INPUT_DIR/$series
 done

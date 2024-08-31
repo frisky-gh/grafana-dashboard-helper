@@ -1,0 +1,109 @@
+#!/usr/bin/perl
+
+use strict;
+use JSON::XS;
+
+our $BASEDIR = $ENV{GDHSTATUSDIR} // "/var/lib/grafana-dashboard-helper";
+
+our $PLUGIN_DIR    = $ENV{DASHBOARDPLUGINDIR} // "/etc/grafana-dashboard-helper/dashboard-plugins";
+our $DASHBOARD_DIR = "$BASEDIR/generated_dashboard";
+
+my $codec = JSON::XS->new->utf8->canonical->relaxed( 1 )->pretty;
+
+sub write_if_changed ($$) {
+	my ($file, $content) = @_;
+
+	if( open my $h, "<", $file ){
+		my $old_content = join '', <$h>;
+		return undef if $content eq $old_content;
+	}
+
+	open my $h, ">", $file or do {
+		die "$file: cannot open, stopped";
+	};
+	print $h $content;
+	close $h;
+	return 1;
+}
+
+sub get_mtime_of_file ($) {
+	my ($file) = @_;
+
+	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat $file;
+	return $mtime;
+}
+
+sub rmdir_if_empty {
+	my ($dir) = @_;
+	return undef unless -d $dir;
+
+	opendir my $h, $dir or do {
+		die "$dir: cannot open, stopped";
+	};
+	my @e = readdir $h;
+	close $h;
+
+	foreach( @e ){
+		next if $_ eq ".";
+		next if $_ eq "..";
+		return undef;
+	}
+
+	rmdir $dir or do {
+		die "$dir: cannot remove, stopped";
+	};
+	return 1;
+}
+
+####
+
+my %pluginname2mtime;
+opendir my $h, $PLUGIN_DIR or do {
+	die "$PLUGIN_DIR: cannot open, stopped";
+};
+foreach my $pluginname ( sort readdir $h ){
+	next if $pluginname =~ m"^\.";
+	next unless -x "$PLUGIN_DIR/$pluginname";
+
+	my $mtime  = get_mtime_of_file "$PLUGIN_DIR/$pluginname";
+	$pluginname2mtime{$pluginname} = $mtime;
+}
+close $h;
+
+opendir my $h, $DASHBOARD_DIR or do {
+	die "$DASHBOARD_DIR: cannot open, stopped";
+};
+foreach my $dashboardname ( sort readdir $h ){
+	next if $dashboardname =~ m"^\.";
+	next unless -x "$DASHBOARD_DIR/$dashboardname";
+
+	opendir my $i, "$DASHBOARD_DIR/$dashboardname" or do {
+		die "$DASHBOARD_DIR/$dashboardname: cannot open, stopped";
+	};
+	foreach my $panelblockfile ( sort readdir $i ){
+		next if $panelblockfile =~ m"^\.";
+		next unless $panelblockfile =~ m"^(.*)\.json$";
+		my $panelblockname = $1;
+
+		# read pluginname which generated the panelblock
+		open my $j, "<", "$DASHBOARD_DIR/$dashboardname/$panelblockname.pluginname" or next;
+		my $pluginname = <$j>;
+		chomp $pluginname;
+		close $j;
+
+		my $mtime = get_mtime_of_file "$DASHBOARD_DIR/$dashboardname/$panelblockfile";
+		next if $mtime > $pluginname2mtime{$pluginname};
+
+		unlink "$DASHBOARD_DIR/$dashboardname/$panelblockname.pluginname";
+		unlink "$DASHBOARD_DIR/$dashboardname/$panelblockname.fieldkeys";
+		unlink "$DASHBOARD_DIR/$dashboardname/$panelblockname.serials";
+		unlink "$DASHBOARD_DIR/$dashboardname/$panelblockname.json";
+	}
+	close $i;
+
+	rmdir_if_empty "$DASHBOARD_DIR/$dashboardname";
+}
+close $h;
+
+exit 0;
+

@@ -33,770 +33,851 @@ cat <<EOF
 [
 #### NCRT NIC
 ####
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 0,
-    "y": 0
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Traffic in $host",
-  "type": "timeseries"
-},
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 12,
-    "y": 0
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-throughput-mbps\", \"longtermavg-of-link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Traffic (Long Term Average) in $host",
-  "type": "timeseries"
-},
-#### Packet
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 0,
-    "y": 8
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-packets-ppm\", \"link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Traffic (Packets) in $host",
-  "type": "timeseries"
-},
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 12,
-    "y": 8
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-packets-ppm\", \"longtermavg-of-link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Traffic (Long Term Average) in $host",
-  "type": "timeseries"
-},
-#### Dropped
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 0,
-    "y": 16
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-dropped-ppm\", \"link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Dropped Packets in $host",
-  "type": "timeseries"
-},
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 12,
-    "y": 16
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-dropped-ppm\", \"longtermavg-of-link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Dropped Packets (Long Term Average) in $host",
-  "type": "timeseries"
-},
-#### Errors
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 0,
-    "y": 24
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-errors-ppm\", \"link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Errors in $host",
-  "type": "timeseries"
-},
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 12,
-    "y": 24
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-errors-ppm\", \"longtermavg-of-link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Traffic (Long Term Average) in $host",
-  "type": "timeseries"
-},
-#### Misc
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 0,
-    "y": 32
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-mcast-ppm\", \"link[$nicname]-tx-mcast-ppm\", \"link[$nicname]-rx-overrun-ppm\", \"link[$nicname]-tx-overrun-ppm\", \"link[$nicname]-rx-carrier-ppm\", \"link[$nicname]-tx-carrier-ppm\", \"link[$nicname]-rx-collsns-ppm\", \"link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Misc Packets in $host",
-  "type": "timeseries"
-},
-{
-  "datasource": {
-    "type": "$GRAFANADATASOURCE"
-  },
-  "fieldConfig": {
-    "defaults": {
-      "custom": {
-        "drawStyle":         "line",
-        "lineInterpolation": "linear",
-        "barAlignment":      0,
-        "lineWidth":         1,
-        "fillOpacity":       20,
-        "gradientMode":      "opacity",
-        "spanNulls":         false,
-        "insertNulls":       false,
-        "showPoints":        "auto",
-        "pointSize": 5,
-        "stacking": { "mode": "none", "group": "A" },
-        "axisPlacement":    "auto",
-        "axisLabel":        "",
-        "axisColorMode":    "text",
-        "axisBorderShow":   false,
-        "scaleDistribution": { "type": "linear" },
-        "axisCenteredZero": false,
-        "hideFrom":        { "tooltip": false, "viz": false, "legend": false },
-        "thresholdsStyle": { "mode": "off" }
-      },
-      "color": { "mode": "palette-classic" },
-      "mappings": [],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
-        ]
-      }
-    },
-    "overrides": []
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 12,
-    "y": 32
-  },
-  "id": 1,
-  "options": {
-    "tooltip": {
-      "mode": "single",
-      "sort": "none"
-    },
-    "legend": {
-      "showLegend": true,
-      "displayMode": "list",
-      "placement": "bottom",
-      "calcs": []
-    }
-  },
-  "targets": [
-    {
-      "datasource": {
-        "type": "$GRAFANADATASOURCE"
-      },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-mcast-ppm\", \"longtermavg-of-link[$nicname]-tx-mcast-ppm\", \"longtermavg-of-link[$nicname]-rx-overrun-ppm\", \"longtermavg-of-link[$nicname]-tx-overrun-ppm\", \"longtermavg-of-link[$nicname]-rx-carrier-ppm\", \"longtermavg-of-link[$nicname]-tx-carrier-ppm\", \"longtermavg-of-link[$nicname]-rx-collsns-ppm\", \"longtermavg-of-link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
-      "refId": "A"
-    }
-  ],
-  "title": "Network Link \"$nicname\" Misc Packets (Long Term Average) in $host",
-  "type": "timeseries"
-}
+  {
+    "id": 1,
+    "title": "Network Link \"$nicname\" in $host",
+    "type": "row",
+    "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+    "panels": [
+
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 0,
+	    "y": 0
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Traffic in $host",
+	  "type": "timeseries"
+	},
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 12,
+	    "y": 0
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-throughput-mbps\", \"longtermavg-of-link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-throughput-mbps\", \"longtermavg-of-link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Traffic (Long Term Average) in $host",
+	  "type": "timeseries"
+	},
+	#### Packet
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 0,
+	    "y": 8
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-packets-ppm\", \"link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-packets-ppm\", \"link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Traffic (Packets) in $host",
+	  "type": "timeseries"
+	},
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 12,
+	    "y": 8
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-packets-ppm\", \"longtermavg-of-link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-packets-ppm\", \"longtermavg-of-link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Traffic (Long Term Average) in $host",
+	  "type": "timeseries"
+	},
+	#### Dropped
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 0,
+	    "y": 16
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-dropped-ppm\", \"link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-dropped-ppm\", \"link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Dropped Packets in $host",
+	  "type": "timeseries"
+	},
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 12,
+	    "y": 16
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-dropped-ppm\", \"longtermavg-of-link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-dropped-ppm\", \"longtermavg-of-link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Dropped Packets (Long Term Average) in $host",
+	  "type": "timeseries"
+	},
+	#### Errors
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 0,
+	    "y": 24
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-errors-ppm\", \"link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-errors-ppm\", \"link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Errors in $host",
+	  "type": "timeseries"
+	},
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 12,
+	    "y": 24
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-errors-ppm\", \"longtermavg-of-link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-errors-ppm\", \"longtermavg-of-link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Traffic (Long Term Average) in $host",
+	  "type": "timeseries"
+	},
+	#### Misc
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 0,
+	    "y": 32
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-mcast-ppm\", \"link[$nicname]-tx-mcast-ppm\", \"link[$nicname]-rx-overrun-ppm\", \"link[$nicname]-tx-overrun-ppm\", \"link[$nicname]-rx-carrier-ppm\", \"link[$nicname]-tx-carrier-ppm\", \"link[$nicname]-rx-collsns-ppm\", \"link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-mcast-ppm\", \"link[$nicname]-tx-mcast-ppm\", \"link[$nicname]-rx-overrun-ppm\", \"link[$nicname]-tx-overrun-ppm\", \"link[$nicname]-rx-carrier-ppm\", \"link[$nicname]-tx-carrier-ppm\", \"link[$nicname]-rx-collsns-ppm\", \"link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Misc Packets in $host",
+	  "type": "timeseries"
+	},
+	{
+	  "datasource": {
+	    "type": "$GRAFANADATASOURCE"
+	  },
+	  "fieldConfig": {
+	    "defaults": {
+	      "custom": {
+		"drawStyle":         "line",
+		"lineInterpolation": "linear",
+		"barAlignment":      0,
+		"lineWidth":         1,
+		"fillOpacity":       20,
+		"gradientMode":      "opacity",
+		"spanNulls":         3600000,
+		"insertNulls":       false,
+		"showPoints":        "auto",
+		"pointSize": 5,
+		"stacking": { "mode": "none", "group": "A" },
+		"axisPlacement":    "auto",
+		"axisLabel":        "",
+		"axisColorMode":    "text",
+		"axisBorderShow":   false,
+		"scaleDistribution": { "type": "linear" },
+		"axisCenteredZero": false,
+		"hideFrom":        { "tooltip": false, "viz": false, "legend": false },
+		"thresholdsStyle": { "mode": "off" }
+	      },
+	      "color": { "mode": "palette-classic" },
+	      "mappings": [],
+	      "thresholds": {
+		"mode": "absolute",
+		"steps": [
+		  {
+		    "color": "green",
+		    "value": null
+		  },
+		  {
+		    "color": "red",
+		    "value": 80
+		  }
+		]
+	      }
+	    },
+	    "overrides": []
+	  },
+	  "gridPos": {
+	    "h": 8,
+	    "w": 12,
+	    "x": 12,
+	    "y": 32
+	  },
+	  "id": 1,
+	  "options": {
+	    "tooltip": {
+	      "mode": "single",
+	      "sort": "none"
+	    },
+	    "legend": {
+	      "showLegend": true,
+	      "displayMode": "list",
+	      "placement": "bottom",
+	      "calcs": []
+	    }
+	  },
+	  "targets": [
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-mcast-ppm\", \"longtermavg-of-link[$nicname]-tx-mcast-ppm\", \"longtermavg-of-link[$nicname]-rx-overrun-ppm\", \"longtermavg-of-link[$nicname]-tx-overrun-ppm\", \"longtermavg-of-link[$nicname]-rx-carrier-ppm\", \"longtermavg-of-link[$nicname]-tx-carrier-ppm\", \"longtermavg-of-link[$nicname]-rx-collsns-ppm\", \"longtermavg-of-link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "A"
+	    },
+	    {
+	      "datasource": {
+		"type": "$GRAFANADATASOURCE"
+	      },
+	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-mcast-ppm\", \"longtermavg-of-link[$nicname]-tx-mcast-ppm\", \"longtermavg-of-link[$nicname]-rx-overrun-ppm\", \"longtermavg-of-link[$nicname]-tx-overrun-ppm\", \"longtermavg-of-link[$nicname]-rx-carrier-ppm\", \"longtermavg-of-link[$nicname]-tx-carrier-ppm\", \"longtermavg-of-link[$nicname]-rx-collsns-ppm\", \"longtermavg-of-link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "refId": "B"
+	    }
+	  ],
+	  "title": "Network Link \"$nicname\" Misc Packets (Long Term Average) in $host",
+	  "type": "timeseries"
+	}
+    ],
+
+    "collapsed": true
+  }
 ]
 EOF
 }
@@ -886,6 +967,7 @@ while read series ; do
 				echo "$series longtermavg-of-link[$nicname]-$i-$j-ppm"
 			done
 		done	> $f.fieldkeys
+		echo "40_ncrt_nic.sh" > $f.pluginname
 
 	done < $INPUT_DIR/$series
 done

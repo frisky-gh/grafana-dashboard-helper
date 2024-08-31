@@ -46,7 +46,7 @@ cat <<EOF
         "lineWidth":         1,
         "fillOpacity":       20,
         "gradientMode":      "opacity",
-        "spanNulls":         false,
+        "spanNulls":         3600000,
         "insertNulls":       false,
         "showPoints":        "auto",
         "pointSize": 5,
@@ -78,12 +78,7 @@ cat <<EOF
     },
     "overrides": []
   },
-  "gridPos": {
-    "h": 8,
-    "w": 24,
-    "x": 0,
-    "y": 0
-  },
+  "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
   "id": 1,
   "options": {
     "tooltip": {
@@ -102,8 +97,15 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "import \"regexp\"\nt1=from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"$volumename-total\", \"$volumename-avail\", \"$volumename-free\", \"$volumename-used\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)\nt2=from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and regexp.replaceAllString(r: /-(total|avail|free)\.[-a-zA-Z]+$/, v: r._field, t: \"\") == \"$volumename\" ) |> aggregateWindow(every: v.windowPeriod, fn: mean)\nunion(tables: [t1, t2])",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"$volumename-total\", \"$volumename-avail\", \"$volumename-free\", \"$volumename-used\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
+    },
+    {
+      "datasource": {
+        "type": "$GRAFANADATASOURCE"
+      },
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"$volumename-total\", \"$volumename-avail\", \"$volumename-free\", \"$volumename-used\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+      "refId": "B"
     }
   ],
   "title": "$volumename Availability in $host (Generic Volume)",
@@ -137,6 +139,7 @@ while read series ; do
 		echo "$series $volumename-avail"			>>$f.fieldkeys
 		echo "$series $volumename-free"				>>$f.fieldkeys
 		echo "$series $volumename-used"				>>$f.fieldkeys
+		echo "50_ncrt_generic_volume.sh" > $f.pluginname
 
 	done < $INPUT_DIR/$series
 done

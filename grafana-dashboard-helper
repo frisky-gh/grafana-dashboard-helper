@@ -518,6 +518,8 @@ sub cmd_cron ($) {
 	debuglog "cron: getting the series from influxdb...";
 	system_or_die "$EXECDIR/get_series_from_influxdb";
 	debuglog "cron: updating the unused series...";
+	system_or_die "$EXECDIR/cleanup_panelblocks_older_than_plugins";
+	debuglog "cron: cleanup the panelblocks older than plugins which generated it...";
 	system_or_die "$EXECDIR/update_unused_series";
 	opendir my $h, $DASHBOARDPLUGINDIR or do {
 		die "$DASHBOARDPLUGINDIR: cannot open, stopped";

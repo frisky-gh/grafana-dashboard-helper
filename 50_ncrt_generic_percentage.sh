@@ -20,7 +20,7 @@ fi
 ####
 
 function generatePanel {
-	local host=$1 measure=$2 fieldkey=$3
+	local host=$1 measure=$2 rationame=$3
 	local tags_cond=
 	local i=
 	for i in $tags ; do
@@ -31,7 +31,8 @@ function generatePanel {
 
 cat <<EOF
 [
-#### NCRT Generic
+#### NCRT Generic Percentage
+####
 {
   "datasource": {
     "type": "$GRAFANADATASOURCE"
@@ -64,21 +65,18 @@ cat <<EOF
       "thresholds": {
         "mode": "absolute",
         "steps": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "red",
-            "value": 80
-          }
+          { "color": "green", "value": null },
+          { "color": "red", "value": 80 }
         ]
-      }
+      },
+      "min": 0,
+      "max": 100,
+      "unit": "percent"
     },
     "overrides": []
   },
   "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
-  "id": null,
+  "id": 1,
   "options": {
     "tooltip": {
       "mode": "single",
@@ -96,18 +94,18 @@ cat <<EOF
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and r._field == \"$fieldkey\" ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"$rationame-pct\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "A"
     },
     {
       "datasource": {
         "type": "$GRAFANADATASOURCE"
       },
-      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and r._field == \"$fieldkey\" ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+      "query": "from(bucket: \"$INFLUXDBBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"$rationame-pct\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
       "refId": "B"
     }
   ],
-  "title": "$fieldkey in $host (Generic)",
+  "title": "$rationame % in $host (Generic Percentage)",
   "type": "timeseries"
 }
 ]
@@ -123,13 +121,19 @@ while read series ; do
 	host="${series##*,host=}"
 
 	while read fieldkey ; do
-		fieldkey_writable="${fieldkey//\//%2F}"
+		case "$fieldkey" in
+			*-pct ) ;;
+			* ) continue ;;
+		esac
+		rationame="${fieldkey%-*}"
+		rationame_writable="${rationame//\//%2F}"
 
-		f=$OUTPUT_DIR/$host,$measure/60_$fieldkey_writable
+		f=$OUTPUT_DIR/$host,$measure/50_percentage_$rationame_writable
+		test -f $f.json && continue
 		mkdir -p $OUTPUT_DIR/$host,$measure
-		generatePanel "$host" "$measure" "$fieldkey"	> $f.json
-		echo "$series $fieldkey"			> $f.fieldkeys
-		echo "${0##*/}"					> $f.pluginname
+		generatePanel "$host" "$measure" "$rationame"		> $f.json
+		echo "$series $rationame-pct"				> $f.fieldkeys
+		echo "50_ncrt_generic_percentage.sh" > $f.pluginname
 
 	done < $INPUT_DIR/$series
 done

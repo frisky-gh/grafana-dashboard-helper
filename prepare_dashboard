@@ -133,7 +133,6 @@ sub write_dashboard ($$@) {
 		close $h;
 		#print "$dir/dashboard.json: no need to update\n" if $old_json eq $json;
 		return undef if $old_json eq $json;
-		die;
 	}
 
 	write_if_changed "$dir/dashboard.json", $json;

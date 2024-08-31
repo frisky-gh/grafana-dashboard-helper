@@ -2,6 +2,7 @@
 
 use strict;
 use JSON::XS;
+use File::Path "rmtree";
 
 our $BASEDIR = $ENV{GDHSTATUSDIR} // "/var/lib/grafana-dashboard-helper";
 
@@ -41,6 +42,38 @@ sub get_mtime_of_dir ($) {
 	return $result_mtime;
 }
 
+sub calculate_height_and_serial ($$@) {
+	my ($panel_abs_y, $panel_lastserial, @panels) = @_;
+
+	my $panelblock_height = 0;
+	my $panelblock_lastserial = $panel_lastserial;
+	my $panelblock_serials;
+	foreach my $p ( @panels ){
+		next unless defined $$p{type};
+		next unless defined $$p{title};
+
+		$panelblock_lastserial++;
+		$$p{id} = $panelblock_lastserial + 0;
+		my $title = $$p{title};
+		$panelblock_serials .= "$panelblock_lastserial\t$title\n" if $$p{type} eq "timeseries";
+
+		if( defined $$p{gridPos} ){
+			$$p{gridPos}{y} += $panel_abs_y;
+			$panelblock_height += $$p{gridPos}{h};
+		}
+
+		if( defined $$p{panels} ){
+			my ($height, $lastserial, $serials) = calculate_height_and_serial(
+				$panel_abs_y, $panelblock_lastserial, @{ $$p{panels} }
+			);
+			$panelblock_height     += $height;
+			$panelblock_lastserial  = $lastserial;
+			$panelblock_serials    .= $serials;
+		}
+	}
+	return $panelblock_height, $panelblock_lastserial, $panelblock_serials;
+}
+
 ####
 
 opendir my $h, $INPUT_DIR or do {
@@ -49,7 +82,7 @@ opendir my $h, $INPUT_DIR or do {
 foreach my $dashboardname ( sort readdir $h ){
 	next if $dashboardname =~ m"^\.";
 	next unless -d "$INPUT_DIR/$dashboardname";
-	my $panel_serial = 1;
+	my $panel_serial = 0;
 	my $panel_abs_y  = 0;
 
 	my $mtime_input  = get_mtime_of_dir "$INPUT_DIR/$dashboardname";
@@ -99,31 +132,50 @@ foreach my $dashboardname ( sort readdir $h ){
 		}
 
 		# validate id and gridPos in the panels
-		my $panel_height = 0;
-		my $panel_serials;
-		foreach my $p ( @$obj ){
-			next unless defined $$p{type};
-			next unless defined $$p{gridPos};
-			next unless defined $$p{title};
+		my ($panelblock_height, $panelblock_lastserial, $panelblock_serials) =
+	       		calculate_height_and_serial $panel_abs_y, $panel_serial, @$obj;
+		$panel_abs_y += $panelblock_height;
+		$panel_serial = $panelblock_lastserial;
 
-			my $title = $$p{title};
-			$panel_serials .= "$panel_serial\t$title\n";
-
-			$$p{id} = ($panel_serial++) + 0;
-			$$p{gridPos}{y} += $panel_abs_y;
-			$panel_height += $$p{gridPos}{h};
-		}
-		$panel_abs_y += $panel_height;
-
-		my $panel_fieldkeys = join "", sort keys %fieldkeys;
-		my $panel_json = $codec->encode($obj) . "\n";
+		my $panelblock_fieldkeys = join "", sort keys %fieldkeys;
+		my $panelblock_json = $codec->encode($obj) . "\n";
 
 		# write panels, field keys
-		write_if_changed "$OUTPUT_DIR/$dashboardname/$panelblockname.serials",   $panel_serials;
-		write_if_changed "$OUTPUT_DIR/$dashboardname/$panelblockname.fieldkeys", $panel_fieldkeys;
-		write_if_changed "$OUTPUT_DIR/$dashboardname/$panelblockname.json",      $panel_json;
+		write_if_changed "$OUTPUT_DIR/$dashboardname/$panelblockname.serials",   $panelblock_serials;
+		write_if_changed "$OUTPUT_DIR/$dashboardname/$panelblockname.fieldkeys", $panelblock_fieldkeys;
+		write_if_changed "$OUTPUT_DIR/$dashboardname/$panelblockname.json",      $panelblock_json;
 	}
 	close $i;
+}
+close $h;
+
+opendir my $h, $OUTPUT_DIR or do {
+	die "$OUTPUT_DIR: cannot open, stopped";
+};
+foreach my $dashboardname ( sort readdir $h ){
+	next if $dashboardname =~ m"^\.";
+
+	unless( -d "$INPUT_DIR/$dashboardname" ){
+		rmtree "$OUTPUT_DIR/$dashboardname" or do {
+			die "$OUTPUT_DIR/$dashboardname: cannot create, stopped";
+		};
+		next;
+	}
+
+	opendir my $i, "$OUTPUT_DIR/$dashboardname" or do {
+		die "$OUTPUT_DIR/$dashboardname: cannot open, stopped";
+	};
+	foreach my $panelblockfile ( sort readdir $i ){
+		next if $panelblockfile =~ m"^\.";
+		next unless $panelblockfile =~ m"^(.*)\.json$";
+		my $panelblockname = $1;
+
+		next if -f "$INPUT_DIR/$dashboardname/$panelblockname.json";
+
+		unlink "$OUTPUT_DIR/$dashboardname/$panelblockname.json";
+		unlink "$OUTPUT_DIR/$dashboardname/$panelblockname.serials";
+		unlink "$OUTPUT_DIR/$dashboardname/$panelblockname.fieldkeys";
+	}
 }
 close $h;
 
