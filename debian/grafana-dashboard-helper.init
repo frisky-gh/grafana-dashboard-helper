@@ -27,8 +27,8 @@ DAEMON=/usr/bin/grafana-dashboard-helper
 PIDFILE=/run/grafana-dashboard-helper.pid
 
 . /lib/lsb/init-functions
-if [ -f /etc/defaults/grafana-dashboard-helper ] ; then
-	. /etc/defaults/grafana-dashboard-helper
+if [ -f /etc/default/grafana-dashboard-helper ] ; then
+	. /etc/default/grafana-dashboard-helper
 fi
 
 case "$1" in
