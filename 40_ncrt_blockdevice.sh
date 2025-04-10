@@ -16,6 +16,10 @@ if [ "$INFLUXDBBUCKET" = "" ] ; then
 	echo "environment: INFLUXDBBUCKET: not defined."
 	exit 2
 fi
+if [ "$PLUGIN_NCRT_OPTIONALBUCKET" = "" ] ; then
+	echo "environment: PLUGIN_NCRT_OPTIONALBUCKET: not defined."
+	exit 2
+fi
 
 ####
 
@@ -104,7 +108,7 @@ cat <<EOF
 			"datasource": {
 			  "type": "$GRAFANADATASOURCE"
 			},
-			"query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"dev[$devicename]-read-tpm\", \"dev[$devicename]-write-tpm\", \"longtermavg-of-dev[$devicename]-read-times\", \"longtermavg-of-dev[$devicename]-write-times\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+			"query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"dev[$devicename]-read-tpm\", \"dev[$devicename]-write-tpm\", \"longtermavg-of-dev[$devicename]-read-times\", \"longtermavg-of-dev[$devicename]-write-times\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 			"refId": "B"
 		  }
 		],
@@ -183,7 +187,7 @@ cat <<EOF
 			"datasource": {
 			  "type": "$GRAFANADATASOURCE"
 			},
-			"query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"dev[$devicename]-read-spm\", \"dev[$devicename]-write-spm\", \"longtermavg-of-dev[$devicename]-read-sectors\", \"longtermavg-of-dev[$devicename]-write-sectors\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+			"query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains(value: r._field, set: [\"dev[$devicename]-read-spm\", \"dev[$devicename]-write-spm\", \"longtermavg-of-dev[$devicename]-read-sectors\", \"longtermavg-of-dev[$devicename]-write-sectors\"]) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 			"refId": "B"
 		  }
 		],

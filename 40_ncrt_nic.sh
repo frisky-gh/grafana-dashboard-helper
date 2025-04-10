@@ -16,6 +16,10 @@ if [ "$INFLUXDBBUCKET" = "" ] ; then
 	echo "environment: INFLUXDBBUCKET: not defined."
 	exit 2
 fi
+if [ "$PLUGIN_NCRT_OPTIONALBUCKET" = "" ] ; then
+	echo "environment: PLUGIN_NCRT_OPTIONALBUCKET: not defined."
+	exit 2
+fi
 
 ####
 
@@ -116,7 +120,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-throughput-mbps\", \"link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],
@@ -199,7 +203,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-throughput-mbps\", \"longtermavg-of-link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter( fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-throughput-mbps\", \"longtermavg-of-link[$nicname]-tx-throughput-mbps\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],
@@ -283,7 +287,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-packets-ppm\", \"link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-packets-ppm\", \"link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],
@@ -366,7 +370,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-packets-ppm\", \"longtermavg-of-link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-packets-ppm\", \"longtermavg-of-link[$nicname]-tx-packets-ppms\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],
@@ -450,7 +454,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-dropped-ppm\", \"link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-dropped-ppm\", \"link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],
@@ -533,7 +537,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-dropped-ppm\", \"longtermavg-of-link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-dropped-ppm\", \"longtermavg-of-link[$nicname]-tx-dropped-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],
@@ -617,7 +621,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-errors-ppm\", \"link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-errors-ppm\", \"link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],
@@ -700,7 +704,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-errors-ppm\", \"longtermavg-of-link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-errors-ppm\", \"longtermavg-of-link[$nicname]-tx-errors-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],
@@ -784,7 +788,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-mcast-ppm\", \"link[$nicname]-tx-mcast-ppm\", \"link[$nicname]-rx-overrun-ppm\", \"link[$nicname]-tx-overrun-ppm\", \"link[$nicname]-rx-carrier-ppm\", \"link[$nicname]-tx-carrier-ppm\", \"link[$nicname]-rx-collsns-ppm\", \"link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"link[$nicname]-rx-mcast-ppm\", \"link[$nicname]-tx-mcast-ppm\", \"link[$nicname]-rx-overrun-ppm\", \"link[$nicname]-tx-overrun-ppm\", \"link[$nicname]-rx-carrier-ppm\", \"link[$nicname]-tx-carrier-ppm\", \"link[$nicname]-rx-collsns-ppm\", \"link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],
@@ -867,7 +871,7 @@ cat <<EOF
 	      "datasource": {
 		"type": "$GRAFANADATASOURCE"
 	      },
-	      "query": "from(bucket: \"ncrt_optional\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-mcast-ppm\", \"longtermavg-of-link[$nicname]-tx-mcast-ppm\", \"longtermavg-of-link[$nicname]-rx-overrun-ppm\", \"longtermavg-of-link[$nicname]-tx-overrun-ppm\", \"longtermavg-of-link[$nicname]-rx-carrier-ppm\", \"longtermavg-of-link[$nicname]-tx-carrier-ppm\", \"longtermavg-of-link[$nicname]-rx-collsns-ppm\", \"longtermavg-of-link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
+	      "query": "from(bucket: \"$PLUGIN_NCRT_OPTIONALBUCKET\") |> range(start: v.timeRangeStart, stop:v.timeRangeStop) |> filter(fn: (r) => r.host == \"$host\" and r._measurement == \"ncrt_$measure\" and contains( value: r._field, set: [\"longtermavg-of-link[$nicname]-rx-mcast-ppm\", \"longtermavg-of-link[$nicname]-tx-mcast-ppm\", \"longtermavg-of-link[$nicname]-rx-overrun-ppm\", \"longtermavg-of-link[$nicname]-tx-overrun-ppm\", \"longtermavg-of-link[$nicname]-rx-carrier-ppm\", \"longtermavg-of-link[$nicname]-tx-carrier-ppm\", \"longtermavg-of-link[$nicname]-rx-collsns-ppm\", \"longtermavg-of-link[$nicname]-tx-collsns-ppm\"] ) ) |> aggregateWindow(every: v.windowPeriod, fn: mean)",
 	      "refId": "B"
 	    }
 	  ],

@@ -9,6 +9,8 @@ generate_index				usr/lib/grafana-dashboard-helper
 cleanup_panelblocks_older_than_plugins	usr/lib/grafana-dashboard-helper
 
 grafana-dashboard-helper.conf		etc/grafana-dashboard-helper
+40_ncrt_agenterror.sh			etc/grafana-dashboard-helper/dashboard-plugins
+40_ncrt_blockdevice.sh			etc/grafana-dashboard-helper/dashboard-plugins
 40_ncrt_storage.sh			etc/grafana-dashboard-helper/dashboard-plugins
 40_ncrt_nic.sh				etc/grafana-dashboard-helper/dashboard-plugins
 50_ncrt_generic_volume.sh		etc/grafana-dashboard-helper/dashboard-plugins

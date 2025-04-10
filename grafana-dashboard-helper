@@ -143,10 +143,10 @@ sub read_gdh_conf (;%) {
 	my $filename = $GDHCONFFILE;
 	my %conf = (
 		'DEBUG'              => undef,
-		'LOGFILE'            => undef,
-		'EXECDIR'            => undef,
-		'STATUSDIR'          => undef,
-		'DASHBOARDPLUGINDIR' => undef,
+		'LOGFILE'            => $LOGFILE,
+		'EXECDIR'            => $EXECDIR,
+		'STATUSDIR'          => $STATUSDIR,
+		'DASHBOARDPLUGINDIR' => $DASHBOARDPLUGINDIR,
 
 		'GDHLISTENADDR' => 'localhost',
 		'GDHLISTENPORT' => 46849,
@@ -192,10 +192,10 @@ sub read_gdh_conf (;%) {
 
 	# set global variables
 	$DEBUG     = $conf{DEBUG}     if defined $conf{DEBUG};
-	$LOGFILE   = $conf{LOGFILE}   if defined $conf{LOGFILE};
-	$EXECDIR   = $conf{EXECDIR}   if defined $conf{EXECDIR};
-	$STATUSDIR = $conf{STATUSDIR} if defined $conf{STATUSDIR};
-	$DASHBOARDPLUGINDIR = $conf{DASHBOARDPLUGINDIR} if defined $conf{DASHBOARDPLUGINDIR};
+	$LOGFILE   = $conf{LOGFILE}   if $conf{LOGFILE} ne "";
+	$EXECDIR   = $conf{EXECDIR}   if $conf{EXECDIR} ne "";
+	$STATUSDIR = $conf{STATUSDIR} if $conf{STATUSDIR} ne "";
+	$DASHBOARDPLUGINDIR = $conf{DASHBOARDPLUGINDIR} if $conf{DASHBOARDPLUGINDIR} ne "";
 
 	setlogfile $LOGFILE if defined $LOGFILE;
 

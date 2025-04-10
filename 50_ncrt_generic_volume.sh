@@ -16,6 +16,10 @@ if [ "$INFLUXDBBUCKET" = "" ] ; then
 	echo "environment: INFLUXDBBUCKET: not defined."
 	exit 2
 fi
+if [ "$PLUGIN_NCRT_OPTIONALBUCKET" = "" ] ; then
+	echo "environment: PLUGIN_NCRT_OPTIONALBUCKET: not defined."
+	exit 2
+fi
 
 ####
 
