@@ -15,7 +15,7 @@ configure)
 	for i in \
 		$LOGDIR $CONFDIR $DASHBOARDPLUGINDIR \
 		$CONFDIR/grafana-dashboard-helper.conf \
-		$DASHBOARDPLUGINDIR/40_ncrt_disk.sh \
+		$DASHBOARDPLUGINDIR/40_ncrt_storage.sh \
 		$DASHBOARDPLUGINDIR/40_ncrt_nic.sh \
 		$DASHBOARDPLUGINDIR/50_ncrt_generic_volume.sh \
 		$DASHBOARDPLUGINDIR/60_ncrt_generic.sh \
