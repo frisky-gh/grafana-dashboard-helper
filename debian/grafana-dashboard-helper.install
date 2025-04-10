@@ -6,6 +6,7 @@ validate_dashboard			usr/lib/grafana-dashboard-helper
 prepare_dashboard			usr/lib/grafana-dashboard-helper
 upload_dashboard_to_grafana		usr/lib/grafana-dashboard-helper
 generate_index				usr/lib/grafana-dashboard-helper
+cleanup_panelblocks_older_than_plugins	usr/lib/grafana-dashboard-helper
 
 grafana-dashboard-helper.conf		etc/grafana-dashboard-helper
 40_ncrt_storage.sh			etc/grafana-dashboard-helper/dashboard-plugins
