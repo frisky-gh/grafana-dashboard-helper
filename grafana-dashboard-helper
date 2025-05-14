@@ -556,15 +556,19 @@ sub cmd_daemon ($) {
 	};
 
 	my $index = {};
+	my $running = 1;
 
 	$SIG{TERM} = sub {
-		$d->shutdown;
+		$running = undef;
+		$d->shutdown(SHUT_RDWR);
 	};
 	$SIG{HUP} = sub {
 		setlogfile $LOGFILE if defined $LOGFILE;
 	};
 
-	while (my $conn = $d->accept) {
+	while ( $running ) {
+		my $conn = $d->accept;
+		next unless $conn;
 		my $req = $conn->get_request;
 		next unless $req;
 		my $method = $req->method;
