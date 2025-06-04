@@ -34,9 +34,9 @@ fi
 case "$1" in
   start)
 	log_daemon_msg "Starting $NAME" || true
-	if start-stop-daemon --status --quiet --oknodo --pidfile $PIDFILE -u grafana-dashboard-helper ; then
+	if start-stop-daemon --status --quiet --pidfile $PIDFILE -u grafana-dashboard-helper ; then
 		log_end_msg 0 || true
-	elif start-stop-daemon --start --quiet --oknodo -m --pidfile $PIDFILE -c grafana-dashboard-helper -b --exec $DAEMON -- daemon ; then
+	elif start-stop-daemon --start --quiet -m --pidfile $PIDFILE -c grafana-dashboard-helper -b --exec $DAEMON -- daemon ; then
 		log_end_msg 0 || true
 	else
 		log_end_msg 1
@@ -52,7 +52,7 @@ case "$1" in
 	;;
   status)
 	log_daemon_msg "Status $NAME" || true
-	if start-stop-daemon --status --quiet --oknodo --pidfile $PIDFILE -u grafana-dashboard-helper ; then
+	if start-stop-daemon --status --quiet --pidfile $PIDFILE -u grafana-dashboard-helper ; then
 		log_end_msg 0 || true
 	else
 		log_end_msg 1
@@ -62,7 +62,7 @@ case "$1" in
 	log_daemon_msg "Restarting $NAME" || true
 	start-stop-daemon --stop --retry 10 --quiet --oknodo --pidfile $PIDFILE
 	sleep 1
-	if start-stop-daemon --start --quiet --oknodo -m --pidfile $PIDFILE -c grafana-dashboard-helper -b --exec $DAEMON -- daemon ; then
+	if start-stop-daemon --start --quiet -m --pidfile $PIDFILE -c grafana-dashboard-helper -b --exec $DAEMON -- daemon ; then
 		log_end_msg 0 || true
 	else
 		log_end_msg 1
@@ -70,7 +70,7 @@ case "$1" in
 	;;
   reload)
 	log_daemon_msg "Reloading $NAME" $NAME || true
-	if start-stop-daemon --stop --signal HUP --quiet --oknodo --pidfile $PIDFILE -u grafana-dashboard-helper ; then
+	if start-stop-daemon --stop --signal HUP --quiet --pidfile $PIDFILE -u grafana-dashboard-helper ; then
 		log_end_msg 0 || true
 	else
 		log_end_msg 1
