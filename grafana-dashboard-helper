@@ -543,8 +543,10 @@ sub cmd_cron ($) {
 	return 1;
 }
 
-sub cmd_daemon ($) {
-	my ($conf) = @_;
+sub cmd_daemon (%) {
+	my (%cmdline_option) = @_;
+
+	my $conf = read_gdh_conf %cmdline_option;
 
 	$0 = $NAME;
 	my $d = HTTP::Daemon->new(
@@ -563,6 +565,7 @@ sub cmd_daemon ($) {
 		$d->shutdown(SHUT_RDWR);
 	};
 	$SIG{HUP} = sub {
+		$conf = read_gdh_conf %cmdline_option;
 		setlogfile $LOGFILE if defined $LOGFILE;
 	};
 
@@ -624,8 +627,7 @@ if    ( $ARGV[0] eq "daemon" ){
 		print "specified invalid option(s).\n";
 		exit 2;
 	}
-	my $conf = read_gdh_conf %option;
-	cmd_daemon $conf;
+	cmd_daemon %option;
 	exit 0;
 
 }elsif( $ARGV[0] eq "cron" ){
