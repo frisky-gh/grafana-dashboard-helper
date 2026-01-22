@@ -55,6 +55,12 @@ from( bucket: \"$INFLUXDBBUCKET\" )
 tail -n +2 | sed -e 's|^,_result,[0-9]*,||' -e 's|\r||' -e 's|^"||' -e 's|"$||' \
 	> $STATUSDIR/influxdb_output/series
 
+ls "$STATUSDIR/influxdb_series" |
+while read f ; do
+	test -f "$STATUSDIR/influxdb_series/$f" || continue
+	rm "$STATUSDIR/influxdb_series/$f"
+done
+
 while read series field ; do
 	test "$field" == "" && continue
 	echo "$field" >> "$STATUSDIR/influxdb_series/$series"
